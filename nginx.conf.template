@@ -12,23 +12,41 @@ server {
     gzip_types text/css application/javascript application/json image/svg+xml;
     gzip_min_length 1024;
 
+    # Заголовки безопасности повторяются в каждом location осознанно.
+    # В nginx add_header не наследуется с уровня server в тот location, где
+    # объявлен хоть один свой add_header. Раньше они стояли только на уровне
+    # server, и из-за Cache-Control в /assets/ и в = /index.html витрина
+    # отдавала HTML и скрипты вообще без единого заголовка безопасности —
+    # хотя в конфиге они были. Ниже — общий набор; менять его надо во всех
+    # трёх местах сразу.
+    #   always — чтобы заголовки уходили и с ответами 4xx/5xx.
+
     # Файлы с хешем в имени не меняются — кэшируем навсегда
     location /assets/ {
         expires 1y;
-        add_header Cache-Control "public, immutable";
+        add_header Cache-Control "public, immutable" always;
+        add_header X-Content-Type-Options nosniff always;
+        add_header Referrer-Policy strict-origin-when-cross-origin always;
+        add_header X-Frame-Options SAMEORIGIN always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
         try_files $uri =404;
     }
 
     # index.html не кэшируем, иначе пользователи застревают на старой версии
     location = /index.html {
-        add_header Cache-Control "no-cache, must-revalidate";
+        add_header Cache-Control "no-cache, must-revalidate" always;
+        add_header X-Content-Type-Options nosniff always;
+        add_header Referrer-Policy strict-origin-when-cross-origin always;
+        add_header X-Frame-Options SAMEORIGIN always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     }
 
     # SPA-роутинг: любой неизвестный путь отдаёт index.html
     location / {
+        add_header X-Content-Type-Options nosniff always;
+        add_header Referrer-Policy strict-origin-when-cross-origin always;
+        add_header X-Frame-Options SAMEORIGIN always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
         try_files $uri $uri/ /index.html;
     }
-
-    add_header X-Content-Type-Options nosniff;
-    add_header Referrer-Policy strict-origin-when-cross-origin;
 }

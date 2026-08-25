@@ -12,23 +12,43 @@ server {
     gzip_types text/css application/javascript application/json image/svg+xml;
     gzip_min_length 1024;
 
+    # Заголовки безопасности повторяются в каждом location осознанно: в nginx
+    # add_header не наследуется с уровня server в тот location, где объявлен
+    # хоть один свой add_header. Из-за Cache-Control ниже кабинет отдавался
+    # вообще без заголовков — в том числе без X-Frame-Options, то есть его
+    # можно было открыть в чужом iframe поверх авторизованной сессии.
+    # Здесь DENY, а не SAMEORIGIN: кабинет не встраивается никуда и никогда.
+    # X-Robots-Tag — чтобы админка не попала в поиск.
+
     # Файлы с хешем в имени не меняются — кэшируем навсегда
     location /assets/ {
         expires 1y;
-        add_header Cache-Control "public, immutable";
+        add_header Cache-Control "public, immutable" always;
+        add_header X-Content-Type-Options nosniff always;
+        add_header Referrer-Policy no-referrer always;
+        add_header X-Frame-Options DENY always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+        add_header X-Robots-Tag "noindex, nofollow" always;
         try_files $uri =404;
     }
 
     # index.html не кэшируем, иначе пользователи застревают на старой версии
     location = /index.html {
-        add_header Cache-Control "no-cache, must-revalidate";
+        add_header Cache-Control "no-cache, must-revalidate" always;
+        add_header X-Content-Type-Options nosniff always;
+        add_header Referrer-Policy no-referrer always;
+        add_header X-Frame-Options DENY always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+        add_header X-Robots-Tag "noindex, nofollow" always;
     }
 
     # SPA-роутинг: любой неизвестный путь отдаёт index.html
     location / {
+        add_header X-Content-Type-Options nosniff always;
+        add_header Referrer-Policy no-referrer always;
+        add_header X-Frame-Options DENY always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+        add_header X-Robots-Tag "noindex, nofollow" always;
         try_files $uri $uri/ /index.html;
     }
-
-    add_header X-Content-Type-Options nosniff;
-    add_header Referrer-Policy strict-origin-when-cross-origin;
 }
