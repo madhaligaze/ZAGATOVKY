@@ -1,8 +1,16 @@
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMutation } from '@tanstack/react-query';
+import { CreditCard, Trash2 } from 'lucide-react';
 import { api, ApiError } from '@/lib/api';
 import { useCart, selectSubtotal } from '@/store/cart';
+import { useCheckoutDraft, isDraftFilled } from '@/store/checkout';
+import {
+  formatKzNational,
+  isCompleteKzPhone,
+  parseKzPhoneInput,
+  toE164,
+} from '@/lib/phone';
 import { usePublicSettings } from '@/hooks/usePublicSettings';
 import { useLocale } from '@/hooks/useLocale';
 import { Button } from '@/components/ui/Button';
@@ -10,10 +18,6 @@ import { ProductMedia } from '@/components/catalog/ProductMedia';
 import { formatPrice, formatWeight, pick } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import type { CreatedOrder } from '@/types/catalog';
-
-type Channel = 'WHATSAPP' | 'TELEGRAM';
-type DeliveryType = 'DELIVERY' | 'PICKUP';
-type CustomerType = 'PERSON' | 'BUSINESS';
 
 /** Пилюли-переключатели вместо радиокнопок — тот же язык форм, что и у фильтров. */
 const Choice = <T extends string>({
@@ -54,16 +58,27 @@ const Choice = <T extends string>({
 const Field = ({
   label,
   error,
+  hint,
   children,
 }: {
   label: string;
   error?: string;
+  hint?: string;
   children: React.ReactNode;
 }) => (
   <label className="flex flex-col gap-2">
     <span className="eyebrow text-stone">{label}</span>
     {children}
-    {error && <span className="text-body-sm text-[#b23b3b]">{error}</span>}
+    {/* Строка подсказки есть всегда: иначе появление ошибки дёргает вёрстку
+        и соседние поля разъезжаются по высоте. */}
+    <span
+      className={cn(
+        'min-h-5 text-body-sm leading-5',
+        error ? 'text-[#b23b3b]' : 'text-stone',
+      )}
+    >
+      {error ?? hint ?? ''}
+    </span>
   </label>
 );
 
@@ -78,16 +93,51 @@ export const CheckoutPage = () => {
   const items = useCart((state) => state.items);
   const subtotal = useCart(selectSubtotal);
   const clear = useCart((state) => state.clear);
+  const removeItem = useCart((state) => state.remove);
 
-  const [customerName, setCustomerName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [address, setAddress] = useState('');
-  const [comment, setComment] = useState('');
-  const [channel, setChannel] = useState<Channel>('WHATSAPP');
-  const [deliveryType, setDeliveryType] = useState<DeliveryType>('DELIVERY');
-  const [customerType, setCustomerType] = useState<CustomerType>('PERSON');
+  // Форма живёт в сохраняемом черновике, а не в локальном useState: уход в каталог
+  // за добавкой больше не стирает уже введённые имя, телефон и адрес.
+  const draft = useCheckoutDraft();
+  const setDraft = useCheckoutDraft((state) => state.set);
+  const resetDraft = useCheckoutDraft((state) => state.reset);
+
+  const {
+    customerName,
+    phoneDigits,
+    address,
+    comment,
+    channel,
+    deliveryType,
+    customerType,
+  } = draft;
+
+  const phoneRef = useRef<HTMLInputElement>(null);
   const [honeypot, setHoneypot] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const onPhoneChange = (raw: string) => {
+    const digits = parseKzPhoneInput(raw, phoneDigits);
+    setDraft({ phoneDigits: digits });
+
+    const input = phoneRef.current;
+    if (!input) return;
+
+    /*
+     * Приводим поле к каноничному виду сразу, а не в следующем кадре.
+     *
+     * Когда введённое отбрасывается — например, одиннадцатая цифра — состояние не
+     * меняется, React не трогает DOM, и лишний символ остаётся в поле видимым.
+     * Отложенная правка не спасает: при быстром наборе следующее нажатие приходит
+     * раньше кадра и разбирается уже по испорченной строке.
+     */
+    input.value = formatKzNational(digits);
+
+    // Маска фиксированной длины: курсор всегда в конце, иначе после перерисовки
+    // React ставит его по старому индексу и ввод «прыгает» через разделители.
+    if (document.activeElement !== input) return;
+    const end = input.value.length;
+    input.setSelectionRange(end, end);
+  };
 
   const deliveryFee =
     settings && deliveryType === 'DELIVERY'
@@ -100,6 +150,8 @@ export const CheckoutPage = () => {
     mutationFn: api.createOrder,
     onSuccess: (order: CreatedOrder) => {
       clear();
+      // Черновик очищаем только здесь: заказ ушёл, повторно вводить нечего.
+      resetDraft();
       // Заказ уже в БД — дальше только показываем номер и ссылку в чат.
       navigate('/success', { state: { order, channel }, replace: true });
     },
@@ -110,7 +162,7 @@ export const CheckoutPage = () => {
 
     const nextErrors: Record<string, string> = {};
     if (customerName.trim().length < 2) nextErrors.customerName = t('checkout.errors.name');
-    if (phone.replace(/\D/g, '').length < 10) nextErrors.phone = t('checkout.errors.phone');
+    if (!isCompleteKzPhone(phoneDigits)) nextErrors.phone = t('checkout.errors.phone');
     if (deliveryType === 'DELIVERY' && address.trim().length < 5) {
       nextErrors.address = t('checkout.errors.address');
     }
@@ -120,7 +172,7 @@ export const CheckoutPage = () => {
 
     mutation.mutate({
       customerName: customerName.trim(),
-      phone: phone.trim(),
+      phone: toE164(phoneDigits),
       channel,
       customerType,
       deliveryType,
@@ -156,6 +208,11 @@ export const CheckoutPage = () => {
         <p className="eyebrow gold-rule text-stone">{t('cart.checkout')}</p>
         <h1 className="font-editorial mt-4 text-display">{t('checkout.title')}</h1>
         <p className="mt-4 max-w-xl text-lead text-stone">{t('checkout.subtitle')}</p>
+        {isDraftFilled(draft) && (
+          <p className="mt-3 text-body-sm text-stone" data-testid="draft-note">
+            {t('checkout.saved')}
+          </p>
+        )}
 
         <form
           id="checkout-form"
@@ -170,7 +227,7 @@ export const CheckoutPage = () => {
               <Field label={t('checkout.name')} error={errors.customerName}>
                 <input
                   value={customerName}
-                  onChange={(event) => setCustomerName(event.target.value)}
+                  onChange={(event) => setDraft({ customerName: event.target.value })}
                   placeholder={t('checkout.namePlaceholder')}
                   autoComplete="name"
                   data-testid="input-name"
@@ -178,23 +235,45 @@ export const CheckoutPage = () => {
                 />
               </Field>
 
-              <Field label={t('checkout.phone')} error={errors.phone}>
-                <input
-                  value={phone}
-                  onChange={(event) => setPhone(event.target.value)}
-                  placeholder={t('checkout.phonePlaceholder')}
-                  autoComplete="tel"
-                  inputMode="tel"
-                  data-testid="input-phone"
-                  className={inputClass}
-                />
+              <Field
+                label={t('checkout.phone')}
+                error={errors.phone}
+                hint={t('checkout.phoneHint')}
+              >
+                {/* «+7» — надпись, а не текст поля: иначе человек, набирающий
+                    «+7 707…» руками, отправляет код страны внутрь номера
+                    и весь номер съезжает на разряд. */}
+                <span
+                  className={cn(
+                    inputClass,
+                    // Подсветку линии берёт на себя обёртка: фокус теперь у вложенного поля
+                    'flex items-center gap-2 focus:border-hairline-strong focus-within:border-teal',
+                  )}
+                >
+                  <span aria-hidden className="shrink-0 text-body text-stone">
+                    +7
+                  </span>
+                  <input
+                    ref={phoneRef}
+                    value={formatKzNational(phoneDigits)}
+                    onChange={(event) => onPhoneChange(event.target.value)}
+                    placeholder={t('checkout.phonePlaceholder')}
+                    autoComplete="tel-national"
+                    inputMode="numeric"
+                    // maxLength не ставим: одиннадцатая цифра нужна разборщику,
+                    // чтобы понять, что первая была кодом страны, и сдвинуть номер.
+                    // Лишнее он всё равно отрежет сам.
+                    data-testid="input-phone"
+                    className="w-full min-w-0 bg-transparent text-body text-mountain outline-none placeholder:text-stone-light"
+                  />
+                </span>
               </Field>
             </div>
 
             <Choice
               label={t('checkout.customerType')}
               value={customerType}
-              onChange={setCustomerType}
+              onChange={(value) => setDraft({ customerType: value })}
               options={[
                 { value: 'PERSON', label: t('checkout.person') },
                 { value: 'BUSINESS', label: t('checkout.business') },
@@ -204,7 +283,7 @@ export const CheckoutPage = () => {
             <Choice
               label={t('checkout.deliveryType')}
               value={deliveryType}
-              onChange={setDeliveryType}
+              onChange={(value) => setDraft({ deliveryType: value })}
               options={[
                 { value: 'DELIVERY', label: t('checkout.delivery') },
                 { value: 'PICKUP', label: t('checkout.pickup') },
@@ -215,7 +294,7 @@ export const CheckoutPage = () => {
               <Field label={t('checkout.address')} error={errors.address}>
                 <input
                   value={address}
-                  onChange={(event) => setAddress(event.target.value)}
+                  onChange={(event) => setDraft({ address: event.target.value })}
                   placeholder={t('checkout.addressPlaceholder')}
                   autoComplete="street-address"
                   data-testid="input-address"
@@ -233,7 +312,7 @@ export const CheckoutPage = () => {
             <Choice
               label={t('checkout.channel')}
               value={channel}
-              onChange={setChannel}
+              onChange={(value) => setDraft({ channel: value })}
               options={[
                 { value: 'WHATSAPP', label: t('checkout.whatsapp') },
                 { value: 'TELEGRAM', label: t('checkout.telegram') },
@@ -243,7 +322,7 @@ export const CheckoutPage = () => {
             <Field label={t('checkout.comment')}>
               <textarea
                 value={comment}
-                onChange={(event) => setComment(event.target.value)}
+                onChange={(event) => setDraft({ comment: event.target.value })}
                 placeholder={t('checkout.commentPlaceholder')}
                 rows={3}
                 className={cn(inputClass, 'resize-none')}
@@ -286,6 +365,17 @@ export const CheckoutPage = () => {
                   <span className="text-body-sm tabular-nums">
                     {formatPrice(product.price * qty, locale)}
                   </span>
+                  {/* Передумал по одной позиции — можно убрать прямо здесь,
+                      не возвращаясь в корзину */}
+                  <button
+                    type="button"
+                    onClick={() => removeItem(product.id)}
+                    aria-label={t('cart.removeItem', { name: pick(product.name, locale) })}
+                    data-testid={`checkout-remove-${product.slug}`}
+                    className="-mr-1 grid h-8 w-8 shrink-0 place-items-center rounded-pill text-stone transition-colors hover:bg-snow hover:text-mountain"
+                  >
+                    <Trash2 size={14} strokeWidth={1.5} />
+                  </button>
                 </li>
               ))}
             </ul>
@@ -327,6 +417,15 @@ export const CheckoutPage = () => {
             >
               {mutation.isPending ? t('checkout.submitting') : t('checkout.submit')}
             </Button>
+
+            {/* Оплата не сюрприз: показываем заранее, что после оформления
+                откроется Kaspi, если способ включён в кабинете. */}
+            {settings?.payment.kaspiEnabled && settings.payment.kaspiLink && (
+              <p className="mt-5 flex items-start gap-2 border-t border-hairline pt-4 text-body-sm text-mountain/80">
+                <CreditCard size={16} strokeWidth={1.5} className="mt-0.5 shrink-0 text-honey" />
+                {t('payment.onCheckout')}
+              </p>
+            )}
 
             <p className="mt-4 text-caption leading-relaxed text-stone">
               {t('checkout.agreement')}

@@ -174,4 +174,58 @@ test.describe('Админ-кабинет', () => {
       /wa\.me\/77005554433/,
     );
   });
+
+  test('заказ уходит в архив и возвращается оттуда', async ({ page }) => {
+    await page.goto('/product/govyadina-kubikami');
+    await page.getByTestId('add-to-cart').click();
+    await page.keyboard.press('Escape');
+    await page.goto('/checkout');
+    await page.getByTestId('input-name').fill('Архив Тест');
+    await page.getByTestId('input-phone').fill('+7 700 555 44 33');
+    await page.getByTestId('input-address').fill('Алматы, Достык 1');
+    await submitOrder(page);
+
+    const numberText = await page.getByTestId('order-number').textContent({ timeout: 15_000 });
+    const number = /ZG-\d{6}/.exec(numberText ?? '')?.[0];
+    expect(number).toBeTruthy();
+
+    await openAdmin(page, '/orders?test=1');
+    const card = page.getByTestId(`order-${number}`);
+    await expect(card).toBeVisible({ timeout: 15_000 });
+
+    // Архив прячет заказ из работы, но не удаляет
+    await page.getByTestId(`archive-${number}`).click();
+    await expect(card).toHaveCount(0, { timeout: 15_000 });
+
+    await page.goto(`${ADMIN}/orders?test=1&archived=1`);
+    await expect(card).toBeVisible({ timeout: 15_000 });
+    await expect(card).toContainText('В архиве');
+
+    await page.getByTestId(`archive-${number}`).click();
+    await expect(card).toHaveCount(0, { timeout: 15_000 });
+
+    await page.goto(`${ADMIN}/orders?test=1`);
+    await expect(card).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('финансы показывают выручку и честно молчат о прибыли без себестоимости', async ({
+    page,
+  }) => {
+    await openAdmin(page, '/finance');
+
+    await expect(page.getByRole('heading', { name: 'Финансы' })).toBeVisible();
+    await expect(page.getByTestId('metric-revenue')).toContainText('тг');
+    await expect(page.getByTestId('metric-orders')).toBeVisible();
+
+    // Без себестоимости отчёт не ломается и не выдаёт выручку за прибыль:
+    // прибыль показывается прочерком, а не числом
+    const profit = page.getByTestId('metric-profit');
+    const noCost = await page.getByText('Прибыль пока не считается').isVisible().catch(() => false);
+    if (noCost) {
+      await expect(profit).toContainText('—');
+      await expect(page.getByTestId('metric-cost')).toContainText('—');
+    } else {
+      await expect(profit).toContainText('тг');
+    }
+  });
 });

@@ -72,87 +72,91 @@ export const UsersPage = () => {
         <p className="text-2xs text-muted">Кто имеет доступ в кабинет и с какими правами</p>
       </div>
 
+      {/* Не таблица: на телефоне шесть колонок уезжали вбок и роль с доступом
+          приходилось искать горизонтальной прокруткой. Каждый человек — карточка,
+          которая на широком экране выстраивается в строку. */}
       <Panel title="Пользователи" bodyClassName="p-0">
-        <table className="w-full border-collapse">
-          <thead>
-            <tr className="border-b border-line text-left">
-              <th className="cell label-caps">Имя</th>
-              <th className="cell label-caps">Почта</th>
-              <th className="cell label-caps">Роль</th>
-              <th className="cell label-caps">Последний вход</th>
-              <th className="cell label-caps">Доступ</th>
-              <th className="cell" />
-            </tr>
-          </thead>
-          <tbody>
-            {data.map((user) => {
-              const isSelf = user.id === me?.id;
-              return (
-                <tr key={user.id} className="border-b border-line last:border-0">
-                  <td className="cell font-medium">
-                    {user.name}
-                    {isSelf && <span className="ml-2 text-2xs text-faint">это вы</span>}
-                  </td>
-                  <td className="cell text-muted">{user.email}</td>
-                  <td className="cell">
-                    <Select
-                      value={user.role}
-                      disabled={isSelf}
-                      onChange={(event) =>
-                        update.mutate({ id: user.id, body: { role: event.target.value } })
+        <div className="hidden gap-3 border-b border-line px-[var(--pad-panel)] py-2 lg:grid lg:grid-cols-[1.2fr_1.6fr_10rem_9rem_7rem_7rem]">
+          <span className="label-caps">Имя</span>
+          <span className="label-caps">Почта</span>
+          <span className="label-caps">Роль</span>
+          <span className="label-caps">Последний вход</span>
+          <span className="label-caps">Доступ</span>
+          <span className="label-caps text-right">Пароль</span>
+        </div>
+
+        <ul className="flex flex-col">
+          {data.map((user) => {
+            const isSelf = user.id === me?.id;
+            return (
+              <li
+                key={user.id}
+                data-testid={`user-${user.email}`}
+                className="grid gap-2 border-b border-line px-[var(--pad-panel)] py-3 last:border-0 lg:grid-cols-[1.2fr_1.6fr_10rem_9rem_7rem_7rem] lg:items-center lg:gap-3"
+              >
+                <p className="min-w-0 truncate text-sm font-medium">{user.name}</p>
+                <p className="min-w-0 truncate text-2xs text-muted lg:text-sm">{user.email}</p>
+
+                <Select
+                  value={user.role}
+                  disabled={isSelf}
+                  onChange={(event) =>
+                    update.mutate({ id: user.id, body: { role: event.target.value } })
+                  }
+                  className="h-8 text-2xs"
+                  title={isSelf ? 'Свою роль менять нельзя' : roleHints[user.role]}
+                >
+                  {Object.entries(roleLabels).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </Select>
+
+                <p className="text-2xs text-muted">
+                  <span className="lg:hidden">Последний вход: </span>
+                  {user.lastLoginAt ? dateTime(user.lastLoginAt) : 'ни разу'}
+                </p>
+
+                <div className="flex flex-wrap items-center gap-2 lg:contents">
+                  <button
+                    type="button"
+                    disabled={isSelf}
+                    title={isSelf ? 'Себя отключить нельзя' : 'Переключить доступ'}
+                    onClick={() =>
+                      update.mutate({ id: user.id, body: { isActive: !user.isActive } })
+                    }
+                    className="disabled:opacity-50 lg:justify-self-start"
+                  >
+                    <Chip tone={user.isActive ? 'success' : 'danger'}>
+                      {user.isActive ? 'Активен' : 'Отключён'}
+                    </Chip>
+                  </button>
+
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    title="Сменить пароль"
+                    className="lg:justify-self-end"
+                    onClick={() => {
+                      const password = window.prompt(
+                        `Новый пароль для ${user.name} (минимум 8 символов)`,
+                      );
+                      if (!password) return;
+                      if (password.length < 8) {
+                        toast.error('Пароль слишком короткий');
+                        return;
                       }
-                      className="h-7 w-auto py-0 text-2xs"
-                      title={roleHints[user.role]}
-                    >
-                      {Object.entries(roleLabels).map(([value, label]) => (
-                        <option key={value} value={value}>
-                          {label}
-                        </option>
-                      ))}
-                    </Select>
-                  </td>
-                  <td className="cell text-2xs text-muted">
-                    {user.lastLoginAt ? dateTime(user.lastLoginAt) : 'ни разу'}
-                  </td>
-                  <td className="cell">
-                    <button
-                      type="button"
-                      disabled={isSelf}
-                      onClick={() =>
-                        update.mutate({ id: user.id, body: { isActive: !user.isActive } })
-                      }
-                      className="disabled:opacity-50"
-                    >
-                      <Chip tone={user.isActive ? 'success' : 'danger'}>
-                        {user.isActive ? 'Активен' : 'Отключён'}
-                      </Chip>
-                    </button>
-                  </td>
-                  <td className="cell text-right">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      title="Сменить пароль"
-                      onClick={() => {
-                        const password = window.prompt(
-                          `Новый пароль для ${user.name} (минимум 8 символов)`,
-                        );
-                        if (!password) return;
-                        if (password.length < 8) {
-                          toast.error('Пароль слишком короткий');
-                          return;
-                        }
-                        update.mutate({ id: user.id, body: { password } });
-                      }}
-                    >
-                      <KeyRound size={14} /> Пароль
-                    </Button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                      update.mutate({ id: user.id, body: { password } });
+                    }}
+                  >
+                    <KeyRound size={14} /> Пароль
+                  </Button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
       </Panel>
 
       <Panel title="Добавить пользователя">

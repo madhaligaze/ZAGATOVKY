@@ -151,4 +151,85 @@ test.describe('Витрина', () => {
 
     await expect(page.getByText(/Минимальная сумма заказа/)).toBeVisible();
   });
+
+  test('@smoke «Наборы» из шапки подсвечиваются фильтром и меняют заголовок', async ({ page }) => {
+    await page.goto('/catalog');
+    await page.getByTestId('filter-BUNDLE').click();
+
+    await expect(page).toHaveURL(/type=BUNDLE/);
+    await expect(page.getByTestId('catalog-title')).toHaveText(/Готовые наборы/);
+    await expect(page.getByTestId('filter-BUNDLE')).toHaveAttribute('class', /bg-mountain/);
+
+    // Выбор категории снимает фильтр наборов, а не складывается с ним:
+    // иначе каталог оказывался пустым и это выглядело как поломка
+    await page.getByTestId('filter-ovoshchi').click();
+    await expect(page).toHaveURL(/category=ovoshchi/);
+    await expect(page).not.toHaveURL(/type=BUNDLE/);
+  });
+
+  test('@smoke позицию из корзины можно убрать и вернуть', async ({ page }) => {
+    await page.goto('/product/govyadina-kubikami');
+    await page.getByTestId('add-to-cart').click();
+    await page.getByTestId('cart-button').click();
+
+    const items = page.getByTestId('cart-drawer').locator('li');
+    await expect(items).toHaveCount(1);
+
+    await page.getByTestId('remove-govyadina-kubikami').click();
+    await expect(items).toHaveCount(0);
+
+    await page.getByTestId('cart-undo-button').click();
+    await expect(items).toHaveCount(1);
+  });
+
+  test('@smoke телефон вводится по казахстанской маске и не переполняется', async ({ page }) => {
+    await page.goto('/product/govyadina-kubikami');
+    await page.getByTestId('add-to-cart').click();
+    await dismissCart(page);
+    await page.goto('/checkout');
+
+    const phone = page.getByTestId('input-phone');
+    await phone.click();
+    await phone.pressSequentially('7071234567');
+    await expect(phone).toHaveValue('(707) 123-45-67');
+
+    // Одиннадцатая цифра не должна сдвигать номер и портить его с начала
+    await phone.pressSequentially('999');
+    await expect(phone).toHaveValue('(707) 123-45-67');
+
+    // Вставка с кодом страны и через восьмёрку приводится к тому же виду
+    await phone.fill('+77071234567');
+    await expect(phone).toHaveValue('(707) 123-45-67');
+    await phone.fill('87071234567');
+    await expect(phone).toHaveValue('(707) 123-45-67');
+  });
+
+  test('@smoke заполненная форма заказа переживает уход в каталог', async ({ page }) => {
+    await page.goto('/product/govyadina-kubikami');
+    await page.getByTestId('add-to-cart').click();
+    await dismissCart(page);
+    await page.goto('/checkout');
+
+    await page.getByTestId('input-name').fill('Черновик Тест');
+    await page.getByTestId('input-phone').fill('+7 707 111 22 33');
+    await page.getByTestId('input-address').fill('Алматы, Абая 10');
+
+    await page.goto('/catalog');
+    await page.goto('/checkout');
+
+    await expect(page.getByTestId('input-name')).toHaveValue('Черновик Тест');
+    await expect(page.getByTestId('input-phone')).toHaveValue('(707) 111-22-33');
+    await expect(page.getByTestId('input-address')).toHaveValue('Алматы, Абая 10');
+    await expect(page.getByTestId('draft-note')).toBeVisible();
+  });
+
+  test('@smoke внутренние страницы открываются сверху, а не в подвале', async ({ page }) => {
+    await page.goto('/');
+    await page.mouse.wheel(0, 3000);
+    await page.waitForTimeout(400);
+
+    await page.getByRole('link', { name: 'Каталог', exact: true }).first().click();
+    await page.waitForTimeout(600);
+    expect(await page.evaluate(() => window.scrollY)).toBeLessThan(50);
+  });
 });

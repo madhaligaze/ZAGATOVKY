@@ -14,6 +14,7 @@ import {
   Settings as SettingsIcon,
   ShoppingBag,
   Users,
+  Wallet,
 } from 'lucide-react';
 import { useWorkspace } from '@/store/workspace';
 import { WorkspaceMenu } from './WorkspaceMenu';
@@ -24,6 +25,7 @@ import { cn } from '@/lib/cn';
 export const navigation = [
   { to: '/', label: 'Обзор', icon: BarChart3, end: true },
   { to: '/orders', label: 'Заказы', icon: ShoppingBag },
+  { to: '/finance', label: 'Финансы', icon: Wallet },
   { to: '/products', label: 'Товары', icon: Boxes },
   { to: '/media', label: 'Медиатека', icon: ImageIcon },
   { to: '/home', label: 'Главная', icon: LayoutTemplate },

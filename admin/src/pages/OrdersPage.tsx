@@ -11,10 +11,20 @@ import {
   useSensors,
   type DragEndEvent,
 } from '@dnd-kit/core';
-import { LayoutGrid, MessageCircle, Phone, Rows3, Trash2, Wallet } from 'lucide-react';
+import {
+  Archive,
+  ArchiveRestore,
+  LayoutGrid,
+  MessageCircle,
+  Phone,
+  Rows3,
+  Trash2,
+  Wallet,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { api, keys, type AdminOrder, type OrderStatus } from '@/lib/api';
-import { Button, Chip, EmptyState, Input, Panel, Spinner } from '@/components/ui';
+import { Button, Chip, EmptyState, Input, Panel, Select, Spinner } from '@/components/ui';
+import { useIsWide } from '@/hooks/useMediaQuery';
 import { dateTime, money, relative } from '@/lib/format';
 import { cn } from '@/lib/cn';
 
@@ -27,21 +37,32 @@ const columns: { status: OrderStatus; label: string }[] = [
   { status: 'CANCELLED', label: 'Отменены' },
 ];
 
+type CardActions = {
+  onTogglePaid: (order: AdminOrder) => void;
+  onSetStatus: (order: AdminOrder, status: OrderStatus) => void;
+  onToggleArchive: (order: AdminOrder) => void;
+};
+
 const OrderCard = ({
   order,
   draggable = true,
   highlighted = false,
-  onTogglePaid,
+  /** В канбане колонка сама говорит о статусе — селектор там был бы дублем */
+  withStatus = false,
+  actions,
 }: {
   order: AdminOrder;
   draggable?: boolean;
   highlighted?: boolean;
-  onTogglePaid?: (order: AdminOrder) => void;
+  withStatus?: boolean;
+  actions: CardActions;
 }) => {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: order.id,
     disabled: !draggable,
   });
+
+  const archived = Boolean(order.archivedAt);
 
   return (
     <article
@@ -51,6 +72,7 @@ const OrderCard = ({
         'rounded-control border border-line bg-surface p-3 transition-shadow',
         isDragging && 'z-20 shadow-lg',
         highlighted && 'border-accent ring-1 ring-accent',
+        archived && 'opacity-70',
       )}
       data-testid={`order-${order.number}`}
     >
@@ -69,6 +91,7 @@ const OrderCard = ({
       </div>
 
       <div className="mt-2 flex flex-wrap gap-1">
+        {archived && <Chip tone="neutral">В архиве</Chip>}
         {order.isPaid ? (
           <Chip tone="success" title={order.paidAt ? `Оплачен ${dateTime(order.paidAt)}` : undefined}>
             Оплачен
@@ -98,8 +121,26 @@ const OrderCard = ({
         </p>
       )}
 
-      <div className="mt-3 flex gap-1.5">
-        <Button asChild size="sm" variant="primary" className="flex-1">
+      {/* Списком статус меняют выбором, а не перетаскиванием: на телефоне
+          drag & drop через шесть колонок физически не работает. */}
+      {withStatus && (
+        <Select
+          value={order.status}
+          onChange={(event) => actions.onSetStatus(order, event.target.value as OrderStatus)}
+          aria-label={`Статус заказа ${order.number}`}
+          data-testid={`status-${order.number}`}
+          className="mt-3 h-8 text-2xs"
+        >
+          {columns.map((column) => (
+            <option key={column.status} value={column.status}>
+              {column.label}
+            </option>
+          ))}
+        </Select>
+      )}
+
+      <div className="mt-2 flex gap-1.5">
+        <Button asChild size="sm" variant="primary" className="min-w-0 flex-1">
           <a href={order.chatUrl} target="_blank" rel="noreferrer">
             <MessageCircle size={13} /> Написать
           </a>
@@ -108,14 +149,25 @@ const OrderCard = ({
           size="sm"
           variant={order.isPaid ? 'subtle' : 'outline'}
           title={order.isPaid ? 'Снять отметку об оплате' : 'Отметить оплаченным'}
-          onClick={() => onTogglePaid?.(order)}
+          aria-label={order.isPaid ? 'Снять отметку об оплате' : 'Отметить оплаченным'}
+          onClick={() => actions.onTogglePaid(order)}
         >
           <Wallet size={13} />
         </Button>
-        <Button asChild size="sm" variant="outline" title={order.phone}>
+        <Button asChild size="sm" variant="outline" title={order.phone} aria-label="Позвонить">
           <a href={`tel:${order.phone.replace(/\s/g, '')}`}>
             <Phone size={13} />
           </a>
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          title={archived ? 'Вернуть из архива' : 'В архив — заказ скроется, но не удалится'}
+          aria-label={archived ? 'Вернуть из архива' : 'В архив'}
+          data-testid={`archive-${order.number}`}
+          onClick={() => actions.onToggleArchive(order)}
+        >
+          {archived ? <ArchiveRestore size={13} /> : <Archive size={13} />}
         </Button>
       </div>
     </article>
@@ -126,12 +178,12 @@ const Column = ({
   status,
   label,
   orders,
-  onTogglePaid,
+  actions,
 }: {
   status: OrderStatus;
   label: string;
   orders: AdminOrder[];
-  onTogglePaid: (order: AdminOrder) => void;
+  actions: CardActions;
 }) => {
   const { setNodeRef, isOver } = useDroppable({ id: status });
   const sum = orders.reduce((total, order) => total + order.total, 0);
@@ -157,9 +209,7 @@ const Column = ({
         {orders.length === 0 ? (
           <p className="py-8 text-center text-2xs text-faint">Пусто</p>
         ) : (
-          orders.map((order) => (
-            <OrderCard key={order.id} order={order} onTogglePaid={onTogglePaid} />
-          ))
+          orders.map((order) => <OrderCard key={order.id} order={order} actions={actions} />)
         )}
       </div>
     </div>
@@ -170,25 +220,41 @@ export const OrdersPage = () => {
   const [params, setParams] = useSearchParams();
   const queryClient = useQueryClient();
   const [mode, setMode] = useState<'board' | 'list'>('board');
+  // Канбан включаем только там, где он помещается: на телефоне шесть колонок
+  // по 288px пришлось бы листать вбок, а карточку — тащить пальцем между ними.
+  const wide = useIsWide();
+  const board = wide && mode === 'board';
 
   const focusId = params.get('focus');
   const search = params.get('search') ?? '';
   const includeTest = params.get('test') === '1';
   const paid = params.get('paid') ?? '';
+  const archived = params.get('archived') === '1';
 
+  const query = { search, includeTest, paid, archived };
   const { data, isPending } = useQuery({
-    queryKey: keys.orders({ search, includeTest, paid }),
-    queryFn: () => api.orders({ search, includeTest, paid: paid || undefined, limit: 200 }),
+    queryKey: keys.orders(query),
+    queryFn: () =>
+      api.orders({
+        search,
+        includeTest,
+        paid: paid || undefined,
+        archived: archived ? 'only' : 'no',
+        limit: 200,
+      }),
     refetchInterval: 30_000,
   });
+
+  const invalidate = () => {
+    void queryClient.invalidateQueries({ queryKey: ['orders'] });
+    void queryClient.invalidateQueries({ queryKey: keys.stats });
+    void queryClient.invalidateQueries({ queryKey: ['finance'] });
+  };
 
   const setStatus = useMutation({
     mutationFn: ({ id, status }: { id: string; status: OrderStatus }) =>
       api.setOrderStatus(id, { status }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['orders'] });
-      void queryClient.invalidateQueries({ queryKey: keys.stats });
-    },
+    onSuccess: invalidate,
     onError: (error: Error) => toast.error(error.message),
   });
 
@@ -197,18 +263,38 @@ export const OrdersPage = () => {
   const setPaid = useMutation({
     mutationFn: ({ id, isPaid }: { id: string; isPaid: boolean }) => api.setOrderPaid(id, isPaid),
     onSuccess: (order) => {
-      void queryClient.invalidateQueries({ queryKey: ['orders'] });
+      invalidate();
       toast.success(order.isPaid ? 'Заказ отмечен оплаченным' : 'Отметка об оплате снята');
     },
     onError: (error: Error) => toast.error(error.message),
   });
 
-  const togglePaid = (order: AdminOrder) => setPaid.mutate({ id: order.id, isPaid: !order.isPaid });
+  /** Архив вместо удаления: заказ уходит из работы, но его можно вернуть. */
+  const setArchived = useMutation({
+    mutationFn: ({ id, value }: { id: string; value: boolean }) => api.setOrderArchived(id, value),
+    onSuccess: (order) => {
+      invalidate();
+      toast.success(
+        order.archivedAt
+          ? `${order.number} в архиве — вернуть можно из вкладки «Архив»`
+          : `${order.number} возвращён в работу`,
+      );
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const actions: CardActions = {
+    onTogglePaid: (order) => setPaid.mutate({ id: order.id, isPaid: !order.isPaid }),
+    onSetStatus: (order, status) =>
+      order.status !== status && setStatus.mutate({ id: order.id, status }),
+    onToggleArchive: (order) =>
+      setArchived.mutate({ id: order.id, value: !order.archivedAt }),
+  };
 
   const clearTest = useMutation({
     mutationFn: api.clearTestOrders,
     onSuccess: (result) => {
-      void queryClient.invalidateQueries({ queryKey: ['orders'] });
+      invalidate();
       toast.success(`Удалено тестовых заявок: ${result.deleted}`);
     },
   });
@@ -235,11 +321,17 @@ export const OrdersPage = () => {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h1 className="text-lg font-semibold tracking-tight">Заказы</h1>
+          <h1 className="text-lg font-semibold tracking-tight">
+            {archived ? 'Архив заказов' : 'Заказы'}
+          </h1>
           <p className="text-2xs text-muted">
-            Перетащите карточку в другую колонку, чтобы сменить статус
+            {archived
+              ? 'Заказы убраны из работы и не попадают в отчёты. Их можно вернуть.'
+              : board
+                ? 'Перетащите карточку в другую колонку, чтобы сменить статус'
+                : 'Статус меняется выбором прямо в карточке'}
           </p>
         </div>
 
@@ -248,8 +340,18 @@ export const OrdersPage = () => {
             value={search}
             onChange={(event) => setParam('search', event.target.value)}
             placeholder="Имя, телефон или номер"
-            className="w-52"
+            className="w-full sm:w-52"
           />
+
+          <Button
+            size="sm"
+            variant={archived ? 'primary' : 'outline'}
+            onClick={() => setParam('archived', archived ? '' : '1')}
+            title="Показать архив"
+            data-testid="filter-archived"
+          >
+            <Archive size={13} /> Архив
+          </Button>
 
           <Button
             size="sm"
@@ -275,6 +377,9 @@ export const OrdersPage = () => {
             </Button>
           )}
 
+          {/* Переключатель режима только на широком экране: канбан из шести колонок
+              по 288px на телефоне листался бы вбок и был бесполезен. */}
+          {wide && (
           <div className="flex rounded-control border border-line p-0.5">
             <Button
               size="iconSm"
@@ -293,6 +398,7 @@ export const OrdersPage = () => {
               <Rows3 size={15} />
             </Button>
           </div>
+          )}
         </div>
       </div>
 
@@ -301,36 +407,46 @@ export const OrdersPage = () => {
       ) : orders.length === 0 ? (
         <Panel>
           <EmptyState
-            title="Заявок пока нет"
-            hint="Как только клиент оформит заказ на витрине, он появится здесь"
+            title={archived ? 'Архив пуст' : 'Заявок пока нет'}
+            hint={
+              archived
+                ? 'Сюда попадают заказы, убранные из работы кнопкой «В архив»'
+                : 'Как только клиент оформит заказ на витрине, он появится здесь'
+            }
           />
         </Panel>
-      ) : mode === 'board' ? (
-        <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragEnd={onDragEnd}>
-          <div className="flex gap-3 overflow-x-auto pb-3">
-            {columns.map((column) => (
-              <Column
-                key={column.status}
-                status={column.status}
-                label={column.label}
-                orders={orders.filter((order) => order.status === column.status)}
-                onTogglePaid={togglePaid}
-              />
-            ))}
-          </div>
-        </DndContext>
       ) : (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {orders.map((order) => (
-            <OrderCard
-              key={order.id}
-              order={order}
-              draggable={false}
-              highlighted={order.id === focusId}
-              onTogglePaid={togglePaid}
-            />
-          ))}
-        </div>
+        <>
+          {board ? (
+            <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragEnd={onDragEnd}>
+              <div className="flex gap-3 overflow-x-auto pb-3">
+                {columns.map((column) => (
+                  <Column
+                    key={column.status}
+                    status={column.status}
+                    label={column.label}
+                    orders={orders.filter((order) => order.status === column.status)}
+                    actions={actions}
+                  />
+                ))}
+              </div>
+            </DndContext>
+          ) : (
+            /* Списком — на телефоне всегда, на широком экране по выбору */
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {orders.map((order) => (
+                <OrderCard
+                  key={order.id}
+                  order={order}
+                  draggable={false}
+                  withStatus
+                  highlighted={order.id === focusId}
+                  actions={actions}
+                />
+              ))}
+            </div>
+          )}
+        </>
       )}
     </div>
   );

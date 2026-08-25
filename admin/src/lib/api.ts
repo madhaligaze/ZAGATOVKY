@@ -45,6 +45,7 @@ export type AuditRow = Json<
 >['items'][number];
 export type AdminAccount = Json<paths['/api/v1/admin/users']['get']['responses'][200]>[number];
 export type Badge = Json<paths['/api/v1/admin/badges']['get']['responses'][200]>[number];
+export type Finance = Json<paths['/api/v1/admin/finance']['get']['responses'][200]>;
 export type PublicSettings = Json<
   paths['/api/v1/settings/public']['get']['responses'][200]
 >;
@@ -225,7 +226,12 @@ export const api = {
     form.append('file', file);
     return request<MediaAsset>('/admin/media', { method: 'POST', raw: form });
   },
-  deleteMedia: (id: string) => request<{ ok: boolean }>(`/admin/media/${id}`, { method: 'DELETE' }),
+  /** force отвязывает фото от товаров и категорий перед удалением */
+  deleteMedia: (id: string, force = false) =>
+    request<{ ok: boolean; detached: number }>(
+      `/admin/media/${id}${force ? '?force=true' : ''}`,
+      { method: 'DELETE' },
+    ),
 
   // Заказы
   orders: (params: Record<string, unknown> = {}) =>
@@ -234,11 +240,14 @@ export const api = {
     request<AdminOrder>(`/admin/orders/${id}/status`, { method: 'PATCH', body }),
   setOrderPaid: (id: string, isPaid: boolean) =>
     request<AdminOrder>(`/admin/orders/${id}/paid`, { method: 'PATCH', body: { isPaid } }),
+  setOrderArchived: (id: string, archived: boolean) =>
+    request<AdminOrder>(`/admin/orders/${id}/archive`, { method: 'PATCH', body: { archived } }),
   clearTestOrders: () =>
     request<{ deleted: number }>('/admin/orders/test', { method: 'DELETE' }),
 
   // Система
   stats: () => request<Stats>('/admin/stats'),
+  finance: (params: Record<string, unknown> = {}) => request<Finance>(`/admin/finance${qs(params)}`),
   audit: (params: Record<string, unknown> = {}) =>
     request<{ items: AuditRow[]; total: number }>(`/admin/audit${qs(params)}`),
   users: () => request<AdminAccount[]>('/admin/users'),
@@ -250,6 +259,7 @@ export const api = {
 
 export const keys = {
   stats: ['stats'] as const,
+  finance: (params: Record<string, unknown>) => ['finance', params] as const,
   products: (params: Record<string, unknown>) => ['products', params] as const,
   product: (id: string) => ['product', id] as const,
   categories: ['categories'] as const,

@@ -8,6 +8,7 @@ import { DashboardPage } from '@/pages/DashboardPage';
 import { ProductsPage } from '@/pages/ProductsPage';
 import { ProductEditorPage } from '@/pages/ProductEditorPage';
 import { OrdersPage } from '@/pages/OrdersPage';
+import { FinancePage } from '@/pages/FinancePage';
 import { MediaPage } from '@/pages/MediaPage';
 import { HomeBuilderPage } from '@/pages/HomeBuilderPage';
 import { SettingsPage } from '@/pages/SettingsPage';
@@ -48,6 +49,7 @@ export const App = () => {
         <Route element={<AppShell />}>
           <Route index element={<DashboardPage />} />
           <Route path="orders" element={<OrdersPage />} />
+          <Route path="finance" element={<FinancePage />} />
           <Route path="products" element={<ProductsPage />} />
           <Route path="products/:id" element={<ProductEditorPage />} />
           <Route path="media" element={<MediaPage />} />

@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, Trash2, Upload } from 'lucide-react';
+import { AlertTriangle, Link2Off, Trash2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, keys } from '@/lib/api';
 import { Button, Chip, EmptyState, Panel, Spinner } from '@/components/ui';
@@ -27,14 +27,42 @@ export const MediaPage = () => {
     onError: (error: Error) => toast.error(error.message),
   });
 
+  /**
+   * Удалять можно любое фото, в том числе использованное. Раньше у занятых файлов
+   * кнопки удаления просто не было — выглядело так, будто обложка товара не удаляется
+   * вовсе. Теперь занятое фото сначала отвязывается от товаров, но только после
+   * явного подтверждения, где перечислено, что именно потеряет фотографию.
+   */
   const remove = useMutation({
-    mutationFn: api.deleteMedia,
-    onSuccess: () => {
+    mutationFn: ({ id, force }: { id: string; force: boolean }) => api.deleteMedia(id, force),
+    onSuccess: (result) => {
       void queryClient.invalidateQueries({ queryKey: ['media'] });
-      toast.success('Файл удалён');
+      void queryClient.invalidateQueries({ queryKey: ['products'] });
+      toast.success(
+        result.detached > 0
+          ? `Файл удалён и отвязан от ${result.detached} мест`
+          : 'Файл удалён',
+      );
     },
     onError: (error: Error) => toast.error(error.message),
   });
+
+  const askRemove = (asset: { id: string; usageCount: number; originalName: string | null }) => {
+    const name = asset.originalName ?? 'файл';
+    if (asset.usageCount === 0) {
+      if (window.confirm(`Удалить ${name}? Файл исчезнет из медиатеки и из хранилища.`)) {
+        remove.mutate({ id: asset.id, force: false });
+      }
+      return;
+    }
+    const message = [
+      `Фото используется в ${asset.usageCount} местах.`,
+      'Оно будет откреплено от этих товаров и категорий, а затем удалено. ' +
+        'Товары останутся, но без этой фотографии.',
+      'Удалить?',
+    ].join('\n\n');
+    if (window.confirm(message)) remove.mutate({ id: asset.id, force: true });
+  };
 
   const storageDisabled = data?.storageEnabled === false;
 
@@ -114,22 +142,30 @@ export const MediaPage = () => {
                       <span className="block text-2xs text-faint">{dateTime(asset.createdAt)}</span>
                     </span>
 
-                    {asset.usageCount > 0 ? (
-                      <Chip tone="accent" title="Используется в товарах">
-                        {asset.usageCount}
-                      </Chip>
-                    ) : (
+                    <span className="flex shrink-0 items-center gap-1">
+                      {asset.usageCount > 0 && (
+                        <Chip tone="accent" title={`Используется в ${asset.usageCount} местах`}>
+                          {asset.usageCount}
+                        </Chip>
+                      )}
                       <button
                         type="button"
-                        aria-label="Удалить файл"
-                        onClick={() => {
-                          if (window.confirm('Удалить файл безвозвратно?')) remove.mutate(asset.id);
-                        }}
-                        className="shrink-0 text-faint transition-colors hover:text-danger"
+                        aria-label={
+                          asset.usageCount > 0 ? 'Отвязать и удалить файл' : 'Удалить файл'
+                        }
+                        title={
+                          asset.usageCount > 0
+                            ? 'Отвязать от товаров и удалить'
+                            : 'Удалить файл'
+                        }
+                        data-testid={`media-delete-${asset.id}`}
+                        onClick={() => askRemove(asset)}
+                        disabled={remove.isPending}
+                        className="grid h-8 w-8 shrink-0 place-items-center rounded-control text-faint transition-colors hover:bg-danger/10 hover:text-danger disabled:opacity-40"
                       >
-                        <Trash2 size={14} />
+                        {asset.usageCount > 0 ? <Link2Off size={14} /> : <Trash2 size={14} />}
                       </button>
-                    )}
+                    </span>
                   </figcaption>
                 </figure>
               ))}

@@ -1,7 +1,8 @@
+import { useEffect, useRef, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import { Link } from 'react-router-dom';
-import { Minus, Plus, X } from 'lucide-react';
-import { useCart, selectSubtotal, selectCount } from '@/store/cart';
+import { Minus, Plus, Trash2, Undo2, X } from 'lucide-react';
+import { useCart, selectSubtotal, selectCount, type CartItem } from '@/store/cart';
 import { useLocale } from '@/hooks/useLocale';
 import { usePublicSettings } from '@/hooks/usePublicSettings';
 import { ProductMedia } from '@/components/catalog/ProductMedia';
@@ -16,7 +17,34 @@ export const CartDrawer = () => {
   const close = useCart((state) => state.close);
   const items = useCart((state) => state.items);
   const setQty = useCart((state) => state.setQty);
+  const remove = useCart((state) => state.remove);
+  const add = useCart((state) => state.add);
   const clear = useCart((state) => state.clear);
+
+  /**
+   * Удаление позиции с возможностью откатить. Без этого единственным способом
+   * убрать товар был минус до нуля — неочевидно, и промах не отменить.
+   */
+  const [undoItem, setUndoItem] = useState<CartItem | null>(null);
+  const undoTimer = useRef<number | null>(null);
+
+  useEffect(() => () => {
+    if (undoTimer.current) window.clearTimeout(undoTimer.current);
+  }, []);
+
+  const removeItem = (item: CartItem) => {
+    remove(item.product.id);
+    setUndoItem(item);
+    if (undoTimer.current) window.clearTimeout(undoTimer.current);
+    undoTimer.current = window.setTimeout(() => setUndoItem(null), 7000);
+  };
+
+  const undoRemove = () => {
+    if (!undoItem) return;
+    add(undoItem.product, undoItem.qty);
+    setUndoItem(null);
+    if (undoTimer.current) window.clearTimeout(undoTimer.current);
+  };
   const subtotal = useCart(selectSubtotal);
   const count = useCart(selectCount);
 
@@ -24,6 +52,31 @@ export const CartDrawer = () => {
   const remainingToFree = freeFrom === null ? 0 : Math.max(freeFrom - subtotal, 0);
   const progress = freeFrom === null ? 100 : Math.min((subtotal / freeFrom) * 100, 100);
   const belowMinimum = settings ? subtotal < settings.delivery.minOrder : false;
+
+  /**
+   * Полоска отката нужна и в пустой корзине: если убрали последнюю позицию,
+   * ветка «корзина пуста» заменяет весь список — без этого вернуть товар
+   * было бы уже нечем.
+   */
+  const undoStrip = undoItem && (
+    <div
+      data-testid="cart-undo"
+      className="flex items-center gap-3 border-t border-hairline bg-parchment px-6 py-3"
+    >
+      <p className="min-w-0 flex-1 truncate text-caption text-stone">
+        {t('cart.removed', { name: pick(undoItem.product.name, locale) })}
+      </p>
+      <button
+        type="button"
+        onClick={undoRemove}
+        data-testid="cart-undo-button"
+        className="flex shrink-0 items-center gap-1.5 text-caption uppercase tracking-[0.125em] text-mountain underline-offset-4 hover:underline"
+      >
+        <Undo2 size={14} strokeWidth={1.75} />
+        {t('cart.undo')}
+      </button>
+    </div>
+  );
 
   return (
     <Dialog.Root open={isOpen} onOpenChange={(open) => !open && close()}>
@@ -47,16 +100,19 @@ export const CartDrawer = () => {
           </div>
 
           {items.length === 0 ? (
-            <div className="flex flex-1 flex-col items-center justify-center gap-4 px-8 text-center">
-              <span className="h-px w-10 bg-honey" />
-              <p className="font-editorial text-heading-sm">{t('cart.empty')}</p>
-              <p className="text-body-sm text-stone">{t('cart.emptyHint')}</p>
-              <Button asChild className="mt-2">
-                <Link to="/catalog" onClick={close}>
-                  {t('cart.goToCatalog')}
-                </Link>
-              </Button>
-            </div>
+            <>
+              <div className="flex flex-1 flex-col items-center justify-center gap-4 px-8 text-center">
+                <span className="h-px w-10 bg-honey" />
+                <p className="font-editorial text-heading-sm">{t('cart.empty')}</p>
+                <p className="text-body-sm text-stone">{t('cart.emptyHint')}</p>
+                <Button asChild className="mt-2">
+                  <Link to="/catalog" onClick={close}>
+                    {t('cart.goToCatalog')}
+                  </Link>
+                </Button>
+              </div>
+              {undoStrip}
+            </>
           ) : (
             <>
               {/* Прогресс до бесплатной доставки — мягкий стимул добрать корзину */}
@@ -79,7 +135,9 @@ export const CartDrawer = () => {
               )}
 
               <ul className="flex-1 divide-y divide-[color:var(--color-hairline)] overflow-y-auto">
-                {items.map(({ product, qty }) => (
+                {items.map((item) => {
+                  const { product, qty } = item;
+                  return (
                   <li key={product.id} className="flex gap-4 px-6 py-4">
                     <Link to={`/product/${product.slug}`} onClick={close} className="shrink-0">
                       <ProductMedia
@@ -90,13 +148,25 @@ export const CartDrawer = () => {
                     </Link>
 
                     <div className="flex min-w-0 flex-1 flex-col gap-1">
-                      <Link
-                        to={`/product/${product.slug}`}
-                        onClick={close}
-                        className="truncate text-body-sm font-semibold hover:text-teal"
-                      >
-                        {pick(product.name, locale)}
-                      </Link>
+                      <div className="flex items-start gap-2">
+                        <Link
+                          to={`/product/${product.slug}`}
+                          onClick={close}
+                          className="min-w-0 flex-1 truncate text-body-sm font-semibold hover:text-teal"
+                        >
+                          {pick(product.name, locale)}
+                        </Link>
+                        {/* Явная кнопка удаления: 44px под палец, не прячется за минусом */}
+                        <button
+                          type="button"
+                          onClick={() => removeItem(item)}
+                          aria-label={t('cart.removeItem', { name: pick(product.name, locale) })}
+                          data-testid={`remove-${product.slug}`}
+                          className="-mr-2 -mt-2 grid h-9 w-9 shrink-0 place-items-center rounded-pill text-stone transition-colors hover:bg-parchment hover:text-mountain"
+                        >
+                          <Trash2 size={15} strokeWidth={1.5} />
+                        </button>
+                      </div>
                       <span className="text-caption uppercase tracking-[0.125em] text-stone">
                         {formatWeight(product.weight, locale)}
                       </span>
@@ -129,8 +199,11 @@ export const CartDrawer = () => {
                       </div>
                     </div>
                   </li>
-                ))}
+                  );
+                })}
               </ul>
+
+              {undoStrip}
 
               <div className="border-t border-hairline px-6 py-5">
                 <div className="mb-4 flex items-baseline justify-between">

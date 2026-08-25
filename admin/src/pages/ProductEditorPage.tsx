@@ -21,6 +21,7 @@ type Draft = {
   descriptionKk: string;
   price: number;
   compareAtPrice: number | null;
+  costPrice: number | null;
   weightValue: number;
   weightUnit: 'G' | 'ML' | 'PORTION' | 'PCS';
   categoryId: string;
@@ -43,6 +44,7 @@ const emptyDraft = (type: 'SIMPLE' | 'BUNDLE'): Draft => ({
   descriptionKk: '',
   price: 0,
   compareAtPrice: null,
+  costPrice: null,
   weightValue: 0,
   weightUnit: 'G',
   categoryId: '',
@@ -96,6 +98,7 @@ export const ProductEditorPage = () => {
       descriptionKk: product.description.kk ?? '',
       price: product.price,
       compareAtPrice: product.compareAtPrice,
+      costPrice: product.costPrice,
       weightValue: product.weight.value,
       weightUnit: product.weight.unit,
       categoryId: product.category?.id ?? '',
@@ -182,6 +185,7 @@ export const ProductEditorPage = () => {
       descriptionKk: draft.descriptionKk || null,
       price: draft.price,
       compareAtPrice: draft.compareAtPrice,
+      costPrice: draft.costPrice,
       weightValue: draft.weightValue,
       weightUnit: draft.weightUnit,
       categoryId: draft.categoryId || null,
@@ -491,6 +495,43 @@ export const ProductEditorPage = () => {
                     set('compareAtPrice', digits ? Number.parseInt(digits, 10) : null);
                   }}
                 />
+              </Field>
+
+              {/* Себестоимость на витрину не уходит — она нужна только отчёту.
+                  Поле необязательное: без него «Финансы» считают выручку. */}
+              <Field
+                label="Себестоимость, тг"
+                hint={
+                  draft.costPrice
+                    ? `Прибыль с единицы: ${money(Math.max(draft.price - draft.costPrice, 0))}`
+                    : 'Не видна покупателям. Без неё отчёт покажет только выручку'
+                }
+              >
+                <Input
+                  inputMode="numeric"
+                  placeholder="не указана"
+                  value={draft.costPrice ?? ''}
+                  onChange={(event) => {
+                    const digits = event.target.value.replace(/\D/g, '');
+                    set('costPrice', digits ? Number.parseInt(digits, 10) : null);
+                  }}
+                  data-testid="cost-price"
+                />
+              </Field>
+
+              <Field
+                label="Маржа"
+                hint={
+                  draft.costPrice
+                    ? 'Считается автоматически по цене и себестоимости'
+                    : 'Появится, когда укажете себестоимость'
+                }
+              >
+                <div className="flex h-9 items-center rounded-control border border-line bg-raised px-3 text-sm tabular-nums">
+                  {draft.costPrice && draft.price > 0
+                    ? `${Math.round(((draft.price - draft.costPrice) / draft.price) * 100)} %`
+                    : '—'}
+                </div>
               </Field>
 
               <Field label="Вес / объём" hint="Число: 250, 400, 1">

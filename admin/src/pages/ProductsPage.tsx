@@ -4,19 +4,28 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Bookmark, Check, Columns3, ImageOff, Plus, Search, X } from 'lucide-react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { toast } from 'sonner';
-import { api, keys, type AdminProduct } from '@/lib/api';
+import { api, keys } from '@/lib/api';
 import { useWorkspace, type SavedView } from '@/store/workspace';
 import { Button, Callout, Chip, EmptyState, Input, Select, Spinner } from '@/components/ui';
 import { money, weight } from '@/lib/format';
 import { cn } from '@/lib/cn';
 
-type ColumnId = 'photo' | 'name' | 'category' | 'price' | 'weight' | 'stock' | 'visible';
+type ColumnId =
+  | 'photo'
+  | 'name'
+  | 'category'
+  | 'price'
+  | 'cost'
+  | 'weight'
+  | 'stock'
+  | 'visible';
 
 const allColumns: { id: ColumnId; label: string; locked?: boolean }[] = [
   { id: 'photo', label: 'Фото' },
   { id: 'name', label: 'Название', locked: true },
   { id: 'category', label: 'Категория' },
   { id: 'price', label: 'Цена' },
+  { id: 'cost', label: 'Себестоимость' },
   { id: 'weight', label: 'Вес' },
   { id: 'stock', label: 'Наличие' },
   { id: 'visible', label: 'На витрине' },
@@ -25,31 +34,54 @@ const allColumns: { id: ColumnId; label: string; locked?: boolean }[] = [
 const stockLabels = { IN_STOCK: 'В наличии', LOW: 'Заканчивается', OUT: 'Нет' } as const;
 const stockTones = { IN_STOCK: 'success', LOW: 'warning', OUT: 'danger' } as const;
 
-/** Правка цены прямо в ячейке: Enter — сохранить, Esc — отменить. */
-const PriceCell = ({ product, onSave }: { product: AdminProduct; onSave: (price: number) => void }) => {
+/**
+ * Правка числа прямо в ячейке: Enter — сохранить, Esc — отменить.
+ * Себестоимость может остаться незаполненной — пустое значение сохраняется как
+ * «не указана», а не как ноль: иначе отчёт посчитал бы прибыль равной выручке.
+ */
+const NumberCell = ({
+  value: current,
+  onSave,
+  title,
+  placeholder = '—',
+  nullable = false,
+}: {
+  value: number | null;
+  onSave: (next: number | null) => void;
+  title: string;
+  placeholder?: string;
+  nullable?: boolean;
+}) => {
   const [editing, setEditing] = useState(false);
-  const [value, setValue] = useState(String(product.price));
+  const [value, setValue] = useState(current === null ? '' : String(current));
 
   if (!editing) {
     return (
       <button
         type="button"
         onClick={() => {
-          setValue(String(product.price));
+          setValue(current === null ? '' : String(current));
           setEditing(true);
         }}
-        className="w-full whitespace-nowrap rounded-control px-2 py-1 text-right text-sm tabular-nums transition-colors hover:bg-raised"
-        title="Изменить цену"
+        className={cn(
+          'w-full whitespace-nowrap rounded-control px-2 py-1 text-right text-sm tabular-nums transition-colors hover:bg-raised',
+          current === null && 'text-faint',
+        )}
+        title={title}
       >
-        {money(product.price)}
+        {current === null ? placeholder : money(current)}
       </button>
     );
   }
 
   const commit = () => {
-    const next = Number.parseInt(value, 10);
     setEditing(false);
-    if (Number.isFinite(next) && next >= 0 && next !== product.price) onSave(next);
+    if (value === '') {
+      if (nullable && current !== null) onSave(null);
+      return;
+    }
+    const next = Number.parseInt(value, 10);
+    if (Number.isFinite(next) && next >= 0 && next !== current) onSave(next);
   };
 
   return (
@@ -59,11 +91,12 @@ const PriceCell = ({ product, onSave }: { product: AdminProduct; onSave: (price:
       value={value}
       onChange={(event) => setValue(event.target.value.replace(/\D/g, ''))}
       onBlur={commit}
+      placeholder={nullable ? 'пусто = не указана' : undefined}
       onKeyDown={(event) => {
         if (event.key === 'Enter') commit();
         if (event.key === 'Escape') setEditing(false);
       }}
-      className="w-full rounded-control border border-accent bg-surface px-2 py-1 text-right text-sm tabular-nums outline-none"
+      className="w-full rounded-control border border-accent bg-surface px-2 py-1 text-right text-sm tabular-nums outline-none placeholder:text-2xs"
     />
   );
 };
@@ -153,7 +186,7 @@ export const ProductsPage = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button asChild variant="outline">
             <Link to="/products/new?type=BUNDLE">Новый набор</Link>
           </Button>
@@ -479,10 +512,27 @@ export const ProductsPage = () => {
                       case 'price':
                         return (
                           <td key="price" className="cell w-32 text-right">
-                            <PriceCell
-                              product={product}
+                            <NumberCell
+                              value={product.price}
+                              title="Изменить цену"
                               onSave={(price) =>
+                                price !== null &&
                                 bulk.mutate({ ids: [product.id], patch: { price } })
+                              }
+                            />
+                          </td>
+                        );
+
+                      case 'cost':
+                        return (
+                          <td key="cost" className="cell w-36 text-right">
+                            <NumberCell
+                              value={product.costPrice}
+                              nullable
+                              title="Себестоимость — видна только вам, нужна для отчёта о прибыли"
+                              placeholder="не указана"
+                              onSave={(costPrice) =>
+                                bulk.mutate({ ids: [product.id], patch: { costPrice } })
                               }
                             />
                           </td>
@@ -583,11 +633,28 @@ export const ProductsPage = () => {
                     <span>{weight(product.weight.value, product.weight.unit)}</span>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  {/* flex-wrap обязателен: цена, наличие и метка видимости
+                      в одну строку на 390px не помещались и вылезали за экран */}
+                  <div className="flex flex-wrap items-center gap-2">
                     <div className="w-24 shrink-0">
-                      <PriceCell
-                        product={product}
-                        onSave={(price) => bulk.mutate({ ids: [product.id], patch: { price } })}
+                      <NumberCell
+                        value={product.price}
+                        title="Изменить цену"
+                        onSave={(price) =>
+                          price !== null && bulk.mutate({ ids: [product.id], patch: { price } })
+                        }
+                      />
+                    </div>
+
+                    <div className="w-28 shrink-0">
+                      <NumberCell
+                        value={product.costPrice}
+                        nullable
+                        title="Себестоимость"
+                        placeholder="себест. —"
+                        onSave={(costPrice) =>
+                          bulk.mutate({ ids: [product.id], patch: { costPrice } })
+                        }
                       />
                     </div>
 
@@ -614,7 +681,7 @@ export const ProductsPage = () => {
                       onClick={() =>
                         bulk.mutate({ ids: [product.id], patch: { isActive: !product.isActive } })
                       }
-                      className="ml-auto"
+                      className="sm:ml-auto"
                     >
                       <Chip tone={product.isActive ? 'success' : 'neutral'}>
                         {product.isActive ? 'Показан' : 'Скрыт'}

@@ -31,7 +31,7 @@ export const defaultWorkspace: Workspace = {
   accent: 'honey',
   widgets: ['orders', 'revenue', 'attention', 'top', 'recent'],
   hiddenWidgets: [],
-  productColumns: ['photo', 'name', 'category', 'price', 'weight', 'stock', 'visible'],
+  productColumns: ['photo', 'name', 'category', 'price', 'cost', 'weight', 'stock', 'visible'],
   savedViews: [],
   sidebarCollapsed: false,
 };
@@ -66,9 +66,26 @@ const applyToDom = (workspace: Workspace) => {
   root.dataset.accent = workspace.accent;
 };
 
+/**
+ * Список, где новые пункты должны появляться у тех, кто уже сохранял раскладку.
+ * Иначе добавленная колонка или виджет остаются невидимыми для всех действующих
+ * пользователей: их старый массив просто не знает о новом элементе.
+ */
+const withNewEntries = (stored: string[] | undefined, defaults: string[], hidden: string[] = []) => {
+  if (!stored) return defaults;
+  const missing = defaults.filter((item) => !stored.includes(item) && !hidden.includes(item));
+  return [...stored, ...missing];
+};
+
 const readWorkspace = (user: AdminUser): Workspace => {
   const stored = (user.prefs as { workspace?: Partial<Workspace> } | undefined)?.workspace;
-  return { ...defaultWorkspace, ...stored };
+  const merged = { ...defaultWorkspace, ...stored };
+
+  return {
+    ...merged,
+    productColumns: withNewEntries(stored?.productColumns, defaultWorkspace.productColumns),
+    widgets: withNewEntries(stored?.widgets, defaultWorkspace.widgets, merged.hiddenWidgets),
+  };
 };
 
 export const useWorkspace = create<State>((set, get) => ({

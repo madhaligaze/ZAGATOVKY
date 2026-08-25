@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -16,10 +16,11 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { AlertTriangle, Eye, EyeOff, GripVertical, ImageOff, PackageX } from 'lucide-react';
+import { AlertTriangle, Eye, EyeOff, GripVertical, ImageOff, Info, PackageX } from 'lucide-react';
 import { api, keys, type Stats } from '@/lib/api';
 import { useWorkspace } from '@/store/workspace';
-import { Button, Chip, Panel, Spinner } from '@/components/ui';
+import { Button, Callout, Chip, Panel, Spinner } from '@/components/ui';
+import { isDemoWhatsapp } from './SettingsPage';
 import { money, relative } from '@/lib/format';
 import { cn } from '@/lib/cn';
 
@@ -232,6 +233,79 @@ const widgetSpan: Record<string, string> = {
   recent: 'md:col-span-3',
 };
 
+/**
+ * Что мешает витрине работать прямо сейчас. Список короткий и исчезает целиком,
+ * когда всё настроено: постоянная «панель советов» быстро становится шумом.
+ */
+const SetupChecklist = ({ withoutPhoto }: { withoutPhoto: number }) => {
+  const { data } = useQuery({ queryKey: keys.settings, queryFn: api.publicSettings });
+  if (!data) return null;
+
+  const todo: { text: ReactNode; to: string; blocking: boolean }[] = [];
+
+  if (isDemoWhatsapp(data.contacts.whatsapp)) {
+    todo.push({
+      blocking: true,
+      to: '/settings',
+      text: (
+        <>
+          <b>Укажите рабочий номер WhatsApp.</b> Сейчас стоит демонстрационный, и клиент после
+          оформления заказа видит «номер не зарегистрирован» — заявка до вас не доходит.
+        </>
+      ),
+    });
+  }
+
+  if (withoutPhoto > 0) {
+    todo.push({
+      blocking: false,
+      to: '/products?status=nophoto',
+      text: (
+        <>
+          <b>{withoutPhoto} товаров без фото.</b> Витрина показывает вместо них буквенную
+          заглушку.
+        </>
+      ),
+    });
+  }
+
+  if (!data.payment.kaspiEnabled || !data.payment.kaspiLink) {
+    todo.push({
+      blocking: false,
+      to: '/settings',
+      text: (
+        <>
+          <b>Оплата через Kaspi выключена.</b> Клиент оформит заказ и договорится об оплате в
+          чате. Чтобы на странице «спасибо» появилась кнопка оплаты, вставьте ссылку Kaspi Pay
+          в «Настройки → Оплата».
+        </>
+      ),
+    });
+  }
+
+  if (todo.length === 0) return null;
+
+  return (
+    <Panel title="Что стоит донастроить">
+      <ul className="flex flex-col gap-2">
+        {todo.map((item) => (
+          <li key={item.to + String(item.blocking)}>
+            <Callout
+              tone={item.blocking ? 'warning' : 'info'}
+              icon={item.blocking ? <AlertTriangle size={14} /> : <Info size={14} />}
+            >
+              {item.text}{' '}
+              <Link to={item.to} className="whitespace-nowrap underline underline-offset-2">
+                Открыть
+              </Link>
+            </Callout>
+          </li>
+        ))}
+      </ul>
+    </Panel>
+  );
+};
+
 export const DashboardPage = () => {
   const workspace = useWorkspace((state) => state.workspace);
   const patch = useWorkspace((state) => state.patchWorkspace);
@@ -290,6 +364,8 @@ export const DashboardPage = () => {
           </div>
         )}
       </div>
+
+      <SetupChecklist withoutPhoto={stats.catalog.withoutPhoto} />
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <SortableContext items={visible} strategy={rectSortingStrategy}>

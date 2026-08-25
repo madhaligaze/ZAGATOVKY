@@ -1,10 +1,19 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Tabs from '@radix-ui/react-tabs';
-import { Info, Plus, Trash2 } from 'lucide-react';
+import { AlertTriangle, Info, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, keys, type AdminCategory, type PublicSettings } from '@/lib/api';
 import { Button, Callout, Field, Input, Panel, Spinner, Textarea } from '@/components/ui';
+
+/**
+ * Номер из сида. Пока он не заменён, ссылка «написать в WhatsApp» ведёт в никуда —
+ * это единственная настройка, без которой витрина внешне работает, а заказы теряются.
+ */
+export const isDemoWhatsapp = (value: string) => {
+  const digits = value.replace(/\D/g, '');
+  return digits === '' || digits === '77000000000' || /^7?7?0+$/.test(digits);
+};
 
 const tabTrigger =
   'rounded-control px-3 py-1.5 text-2xs font-semibold uppercase tracking-[0.06em] text-muted transition-colors data-[state=active]:bg-accent-soft data-[state=active]:text-ink';
@@ -275,6 +284,21 @@ export const SettingsPage = () => {
             }
           >
             <div className="flex flex-col gap-4">
+              {/* Из этого номера собирается ссылка «написать нам» на витрине.
+                  Пока здесь демо-значение, WhatsApp у клиента открывается
+                  с сообщением «номер не зарегистрирован» — и заказ теряется. */}
+              {isDemoWhatsapp(draft.contacts.whatsapp) && (
+                <Callout
+                  tone="warning"
+                  icon={<AlertTriangle size={14} />}
+                  title="WhatsApp ещё не настроен"
+                >
+                  Сейчас указан демонстрационный номер {draft.contacts.whatsapp || '—'}. Клиент,
+                  оформивший заказ, попадёт в WhatsApp на несуществующий контакт. Впишите рабочий
+                  номер цифрами с кодом страны — например 77011234567 — и сохраните.
+                </Callout>
+              )}
+
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field label="Телефон">
                   <Input

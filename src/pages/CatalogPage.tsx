@@ -71,30 +71,55 @@ export const CatalogPage = () => {
     window.scrollTo({ top: 0, behavior: 'auto' });
   }, [category, type]);
 
-  const setParam = (key: string, value?: string) => {
+  /**
+   * Меняем сразу все затронутые параметры одним вызовом. Раньше сброс типа и
+   * установка категории шли двумя вызовами подряд, и второй перезатирал первый
+   * старым состоянием — выбор категории не снимал фильтр «Наборы» и каталог
+   * оказывался пустым.
+   */
+  const setParams_ = (patch: Record<string, string | undefined>) => {
     captureLayout();
     const next = new URLSearchParams(params);
-    if (value) next.set(key, value);
-    else next.delete(key);
+    for (const [key, value] of Object.entries(patch)) {
+      if (value) next.set(key, value);
+      else next.delete(key);
+    }
     setParams(next, { replace: true });
   };
 
+  // «Наборы» — такой же фильтр, как категория: без него переход из шапки
+  // менял выдачу, но в рельсе ничего не подсвечивалось и клик выглядел пустым.
   const filters = [
-    { value: undefined, label: t('common.all'), active: !category && !type },
+    { key: 'all', label: t('common.all'), active: !category && !type, patch: {} },
     ...(categories ?? []).map((item) => ({
-      value: item.slug,
+      key: item.slug,
       label: pick(item.name, locale),
-      active: category === item.slug,
+      active: category === item.slug && !type,
+      patch: { category: item.slug },
     })),
+    {
+      key: 'BUNDLE',
+      label: t('nav.bundles'),
+      active: type === 'BUNDLE',
+      patch: { type: 'BUNDLE' },
+    },
   ];
 
   return (
     <>
       <section className="band-parchment border-b border-hairline pb-12 pt-16">
         <div className="container-page">
-          <p className="eyebrow gold-rule text-stone">{t('nav.catalog')}</p>
-          <h1 className="font-editorial mt-4 text-display">{t('catalog.title')}</h1>
-          <p className="mt-4 max-w-xl text-lead text-mountain/70">{t('catalog.subtitle')}</p>
+          {/* Заголовок меняется вместе с фильтром: переход «Наборы» из шапки
+              должен читаться сразу, а не только по составу сетки. */}
+          <p className="eyebrow gold-rule text-stone">
+            {type === 'BUNDLE' ? t('nav.bundles') : t('nav.catalog')}
+          </p>
+          <h1 className="font-editorial mt-4 text-display" data-testid="catalog-title">
+            {type === 'BUNDLE' ? t('catalog.bundlesTitle') : t('catalog.title')}
+          </h1>
+          <p className="mt-4 max-w-xl text-lead text-mountain/70">
+            {type === 'BUNDLE' ? t('catalog.bundlesSubtitle') : t('catalog.subtitle')}
+          </p>
         </div>
       </section>
 
@@ -108,13 +133,14 @@ export const CatalogPage = () => {
           <div className="-mx-[var(--spacing-gutter)] flex flex-1 gap-2 overflow-x-auto px-[var(--spacing-gutter)] [mask-image:linear-gradient(to_right,black_calc(100%-2.5rem),transparent)] [scrollbar-width:none] lg:mx-0 lg:flex-wrap lg:px-0 lg:[mask-image:none] [&::-webkit-scrollbar]:hidden">
             {filters.map((filter) => (
               <button
-                key={filter.label}
+                key={filter.key}
                 type="button"
-                onClick={() => {
-                  setParam('type', undefined);
-                  setParam('category', filter.value);
-                }}
-                data-testid={`filter-${filter.value ?? 'all'}`}
+                // Каждый фильтр сбрасывает оба параметра и выставляет только свой —
+                // категория и «Наборы» взаимоисключающие.
+                onClick={() =>
+                  setParams_({ category: undefined, type: undefined, ...filter.patch })
+                }
+                data-testid={`filter-${filter.key}`}
                 className={cn(
                   'shrink-0 rounded-pill border px-4 py-2 text-caption uppercase tracking-[0.125em] transition-colors',
                   filter.active
@@ -137,7 +163,7 @@ export const CatalogPage = () => {
 
             <select
               value={sort}
-              onChange={(event) => setParam('sort', event.target.value)}
+              onChange={(event) => setParams_({ sort: event.target.value })}
               aria-label={t('catalog.sort.label')}
               className="absolute inset-0 h-full w-full cursor-pointer opacity-0 lg:relative lg:h-auto lg:w-auto lg:rounded-pill lg:border lg:border-hairline lg:bg-transparent lg:px-4 lg:py-2 lg:text-caption lg:uppercase lg:tracking-[0.125em] lg:text-mountain lg:opacity-100 lg:hover:border-teal"
             >
