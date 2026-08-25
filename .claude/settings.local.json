@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "defaultMode": "bypassPermissions",
+    "allow": [
+      "Bash",
+      "Bash(*)",
+      "PowerShell",
+      "PowerShell(*)"
+    ],
+    "deny": [],
+    "ask": []
+  },
+  "sandbox": {
+    "enabled": false,
+    "autoAllowBashIfSandboxed": true,
+    "allowUnsandboxedCommands": true
+  }
+}

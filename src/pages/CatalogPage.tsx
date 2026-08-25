@@ -1,0 +1,169 @@
+import { useEffect, useLayoutEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
+import { api, queryKeys } from '@/lib/api';
+import { ProductCard } from '@/components/catalog/ProductCard';
+import { PageState } from '@/components/ui/PageState';
+import { useLocale } from '@/hooks/useLocale';
+import { Flip, gsap, prefersReducedMotion } from '@/lib/motion';
+import { pick } from '@/lib/format';
+import { cn } from '@/lib/cn';
+import type { ProductQuery } from '@/types/catalog';
+
+const sorts = ['default', 'price_asc', 'price_desc', 'name', 'new'] as const;
+
+export const CatalogPage = () => {
+  const { t, locale } = useLocale();
+  const [params, setParams] = useSearchParams();
+
+  const category = params.get('category') ?? undefined;
+  const type = (params.get('type') as ProductQuery['type']) ?? undefined;
+  const sort = (params.get('sort') as ProductQuery['sort']) ?? 'default';
+
+  const { data: categories } = useQuery({
+    queryKey: queryKeys.categories,
+    queryFn: api.categories,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const query: ProductQuery = { category, type, sort };
+  const { data, isPending, isError, refetch, isPlaceholderData } = useQuery({
+    queryKey: queryKeys.products(query),
+    queryFn: () => api.products(query),
+    placeholderData: keepPreviousData,
+  });
+
+  const gridRef = useRef<HTMLDivElement>(null);
+  const flipState = useRef<Flip.FlipState | null>(null);
+  const items = data?.items ?? [];
+
+  // Перед сменой фильтра снимаем позиции карточек…
+  const captureLayout = () => {
+    if (prefersReducedMotion() || !gridRef.current) return;
+    flipState.current = Flip.getState(gridRef.current.querySelectorAll('[data-flip-id]'));
+  };
+
+  // …а после перерисовки сетки проигрываем перетекание в новые позиции.
+  useLayoutEffect(() => {
+    if (!flipState.current || !gridRef.current) return;
+
+    Flip.from(flipState.current, {
+      duration: 0.55,
+      ease: 'power3.inOut',
+      scale: true,
+      absolute: true,
+      stagger: 0.02,
+      onEnter: (elements) =>
+        gsap.fromTo(
+          elements,
+          { opacity: 0, scale: 0.94 },
+          { opacity: 1, scale: 1, duration: 0.45, ease: 'power2.out', stagger: 0.02 },
+        ),
+      onLeave: (elements) =>
+        gsap.to(elements, { opacity: 0, scale: 0.94, duration: 0.3, ease: 'power2.in' }),
+    });
+
+    flipState.current = null;
+  }, [items]);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }, [category, type]);
+
+  const setParam = (key: string, value?: string) => {
+    captureLayout();
+    const next = new URLSearchParams(params);
+    if (value) next.set(key, value);
+    else next.delete(key);
+    setParams(next, { replace: true });
+  };
+
+  const filters = [
+    { value: undefined, label: t('common.all'), active: !category && !type },
+    ...(categories ?? []).map((item) => ({
+      value: item.slug,
+      label: pick(item.name, locale),
+      active: category === item.slug,
+    })),
+  ];
+
+  return (
+    <>
+      <section className="band-parchment border-b border-hairline pb-12 pt-16">
+        <div className="container-page">
+          <p className="eyebrow gold-rule text-stone">{t('nav.catalog')}</p>
+          <h1 className="font-editorial mt-4 text-display">{t('catalog.title')}</h1>
+          <p className="mt-4 max-w-xl text-lead text-mountain/70">{t('catalog.subtitle')}</p>
+        </div>
+      </section>
+
+      {/* Липкий рельс фильтров — остаётся под шапкой при прокрутке каталога */}
+      <div className="sticky top-18 z-40 border-b border-hairline bg-snow/95 backdrop-blur-md">
+        <div className="container-page flex flex-wrap items-center gap-2 py-4">
+          {filters.map((filter) => (
+            <button
+              key={filter.label}
+              type="button"
+              onClick={() => {
+                setParam('type', undefined);
+                setParam('category', filter.value);
+              }}
+              data-testid={`filter-${filter.value ?? 'all'}`}
+              className={cn(
+                'rounded-pill border px-4 py-2 text-caption uppercase tracking-[0.125em] transition-colors',
+                filter.active
+                  ? 'border-mountain bg-mountain text-parchment'
+                  : 'border-hairline text-mountain hover:border-teal hover:bg-parchment',
+              )}
+            >
+              {filter.label}
+            </button>
+          ))}
+
+          <select
+            value={sort}
+            onChange={(event) => setParam('sort', event.target.value)}
+            aria-label={t('catalog.sort.label')}
+            className="ml-auto rounded-pill border border-hairline bg-transparent px-4 py-2 text-caption uppercase tracking-[0.125em] text-mountain hover:border-teal focus-visible:border-teal"
+          >
+            {sorts.map((value) => (
+              <option key={value} value={value}>
+                {t(`catalog.sort.${value}`)}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <section className="band band-snow pt-12">
+        <div className="container-page">
+          {isPending ? (
+            <PageState />
+          ) : isError ? (
+            <PageState isError onRetry={() => void refetch()} />
+          ) : items.length === 0 ? (
+            <PageState title={t('catalog.empty')} hint={t('catalog.emptyHint')} />
+          ) : (
+            <>
+              <p className="mb-8 text-caption uppercase tracking-[0.125em] text-stone">
+                {t('catalog.found_many', { count: data.total })}
+              </p>
+              <div
+                ref={gridRef}
+                data-testid="product-grid"
+                className={cn(
+                  'grid gap-6 transition-opacity sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4',
+                  isPlaceholderData && 'opacity-60',
+                )}
+              >
+                {items.map((product) => (
+                  <ProductCard key={product.id} product={product} />
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </section>
+    </>
+  );
+};

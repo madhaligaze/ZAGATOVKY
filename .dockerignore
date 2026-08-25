@@ -1,0 +1,12 @@
+node_modules
+dist
+admin
+backend
+e2e
+.scratch
+docs
+.git
+.env
+.env.*
+*.log
+playwright.config.ts

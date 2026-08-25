@@ -1,0 +1,251 @@
+/*
+  ZAGATOVKY — дизайн-система витрины.
+  Источник правды: docs/DESIGN.md (набор «BelArosa Chalet» — dusk on alpine vellum).
+
+  Принципы, которые нельзя нарушать:
+  · Глубина создаётся цветом и hairline-бордерами, а не тенями. Теней в системе нет.
+  · Медовое золото — только акцент (иконки, бейджи, засечки). Никогда не заливка CTA.
+  · Serif включается только на дисплейных размерах — это «момент», а не рядовой текст.
+  · Заглавные буквы всегда идут с большим трекингом (0.125em–0.167em).
+*/
+
+@import 'tailwindcss';
+
+@theme {
+  /* ─── Цвета ─────────────────────────────────────────────────────────────── */
+  --color-mountain: #193741; /* доминирующая структурная — тёмные полосы, текст */
+  --color-teal: #1d414d; /* приподнятый вариант — бордеры действий, ховеры */
+  --color-honey: #eac486; /* декоративный акцент, только мелкие детали */
+  --color-parchment: #ebe7e1; /* тёплая кремовая полоса между белым и тилом */
+  /* Stone Gray из DESIGN.md (#8c9ba0) даёт на белом всего 2.9:1 — для текста это
+     провал WCAG AA. Затемняем на пару ступеней, сохраняя тот же холодный оттенок:
+     5.8:1 на белом и 4.7:1 на пергаменте. Исходный светлый тон остался ниже
+     для декоративных линий, где контраст не требуется. */
+  --color-stone: #59686e; /* приглушённый текст */
+  --color-stone-light: #8c9ba0; /* вторичные бордеры и декор */
+  --color-charcoal: #222222; /* редкий тёмный акцент там, где чёрный груб */
+  --color-snow: #ffffff;
+
+  /* Производные для hairline-бордеров и заливок — считаем один раз здесь */
+  --color-hairline: color-mix(in srgb, var(--color-mountain) 14%, transparent);
+  --color-hairline-strong: color-mix(in srgb, var(--color-mountain) 28%, transparent);
+  --color-hairline-light: color-mix(in srgb, var(--color-snow) 22%, transparent);
+  --color-parchment-deep: color-mix(in srgb, var(--color-parchment) 82%, var(--color-mountain));
+
+  /* ─── Шрифты ────────────────────────────────────────────────────────────── */
+  /* Playfair Display — замена ITC Giovanni: transitional serif, есть кириллица
+     и расширенная кириллица для казахских ә ғ қ ң ө ұ ү һ і.
+     Mulish — прямой потомок Muli, ближайший свободный аналог Avenir с кириллицей. */
+  --font-display: 'Playfair Display', 'Georgia', 'Times New Roman', serif;
+  --font-sans: 'Mulish', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* ─── Типографическая шкала ─────────────────────────────────────────────── */
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1.5;
+  --text-caption--letter-spacing: 0.125em;
+
+  --text-body-sm: 0.875rem;
+  --text-body-sm--line-height: 1.43;
+
+  --text-body: 1rem;
+  --text-body--line-height: 1.6;
+
+  --text-lead: 1.125rem;
+  --text-lead--line-height: 1.6;
+
+  --text-subheading: 1.25rem;
+  --text-subheading--line-height: 1.25;
+
+  --text-heading-sm: 1.5rem;
+  --text-heading-sm--line-height: 1.2;
+
+  --text-heading: 1.75rem;
+  --text-heading--line-height: 1.2;
+
+  /* Дисплейные размеры тянутся по вьюпорту: 40 → 64px */
+  --text-heading-lg: clamp(1.75rem, 1.2rem + 2.4vw, 2.5rem);
+  --text-heading-lg--line-height: 1.15;
+
+  --text-display: clamp(2.125rem, 1.3rem + 3.6vw, 3rem);
+  --text-display--line-height: 1.15;
+
+  --text-display-lg: clamp(2.5rem, 1.1rem + 6vw, 4rem);
+  --text-display-lg--line-height: 1.05;
+
+  /* ─── Радиусы ───────────────────────────────────────────────────────────── */
+  --radius-card: 12px;
+  --radius-pill: 80px;
+
+  /* ─── Ритм секций ───────────────────────────────────────────────────────── */
+  --spacing-section: clamp(4rem, 8vw, 7.5rem);
+  --spacing-gutter: clamp(1.25rem, 4vw, 2.5rem);
+
+  /* ─── Тайминги анимаций ─────────────────────────────────────────────────── */
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out-soft: cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+/* ─── Базовые слои ────────────────────────────────────────────────────────── */
+
+@layer base {
+  :root {
+    color-scheme: light;
+    scroll-behavior: smooth;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-snow);
+    color: var(--color-mountain);
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: 1.6;
+    font-weight: 400;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background-color: var(--color-honey);
+    color: var(--color-mountain);
+  }
+
+  /* Единый видимый фокус — система плоская, поэтому фокус тоже контурный */
+  :focus-visible {
+    outline: 2px solid var(--color-honey);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+
+  h1, h2, h3, h4 {
+    font-weight: 700;
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  img {
+    max-width: 100%;
+    display: block;
+  }
+}
+
+@layer components {
+  /* Дисплейный serif. Отдельный класс, чтобы serif нельзя было случайно
+     применить к мелкому тексту — в системе он живёт только крупно. */
+  .font-editorial {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  /* Надзаголовок капсом с широким трекингом — подпись раздела */
+  .eyebrow {
+    font-size: var(--text-caption);
+    line-height: 1.5;
+    letter-spacing: 0.167em;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+
+  .container-page {
+    width: 100%;
+    max-width: 1200px;
+    margin-inline: auto;
+    padding-inline: var(--spacing-gutter);
+  }
+
+  /* Полосы-секции. Ритм страницы — чередование трёх поверхностей. */
+  .band {
+    padding-block: var(--spacing-section);
+  }
+  .band-snow {
+    background-color: var(--color-snow);
+    color: var(--color-mountain);
+  }
+  .band-parchment {
+    background-color: var(--color-parchment);
+    color: var(--color-mountain);
+  }
+  .band-mountain {
+    background-color: var(--color-mountain);
+    color: var(--color-parchment);
+  }
+
+  /* Золотая засечка перед надзаголовком — единственное декоративное
+     применение золота, повторяется по всему сайту. */
+  .gold-rule::before {
+    content: '';
+    display: inline-block;
+    width: 2rem;
+    height: 1px;
+    margin-right: 0.75rem;
+    vertical-align: middle;
+    background-color: var(--color-honey);
+  }
+}
+
+@layer utilities {
+  /* Элементы, появляющиеся по скроллу. Начальное состояние задаётся здесь,
+     чтобы не мигало до инициализации GSAP. Если анимации отключены —
+     стиль снимается медиазапросом ниже. */
+  .reveal {
+    opacity: 0;
+    transform: translateY(1.5rem);
+    will-change: opacity, transform;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+/* ─── Ключевые кадры для Radix-компонентов ────────────────────────────────── */
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-in {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+/* Аккордеон FAQ: Radix отдаёт высоту содержимого через CSS-переменную */
+@keyframes acc-down {
+  from { height: 0; }
+  to { height: var(--radix-accordion-content-height); }
+}
+
+@keyframes acc-up {
+  from { height: var(--radix-accordion-content-height); }
+  to { height: 0; }
+}
+
+/* ─── Уважение к prefers-reduced-motion ───────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    scroll-behavior: auto;
+  }
+
+  .reveal {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

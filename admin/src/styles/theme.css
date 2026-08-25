@@ -1,0 +1,178 @@
+/*
+  ZAGATOVKY — админ-кабинет.
+
+  Это рабочий инструмент, а не витрина: плотнее, спокойнее, с тёмной темой.
+  Но фирменная ДНК та же — тил, пергамент и медовое золото из docs/DESIGN.md,
+  чтобы владелец не чувствовал, что переключился в чужую систему.
+
+  Три оси кастомизации, которые пользователь меняет в интерфейсе:
+   · тема         — [data-theme="light" | "dark"]
+   · плотность    — [data-density="comfortable" | "compact"]
+   · акцент       — [data-accent="honey" | "teal" | "sky" | "rose"]
+*/
+
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-editorial: 'Playfair Display', Georgia, serif;
+
+  /* Семантические цвета — конкретные значения задаются темой ниже */
+  --color-canvas: var(--c-canvas);
+  --color-surface: var(--c-surface);
+  --color-raised: var(--c-raised);
+  --color-line: var(--c-line);
+  --color-line-strong: var(--c-line-strong);
+  --color-ink: var(--c-ink);
+  --color-muted: var(--c-muted);
+  --color-faint: var(--c-faint);
+  --color-accent: var(--c-accent);
+  --color-accent-ink: var(--c-accent-ink);
+  --color-accent-soft: var(--c-accent-soft);
+
+  --color-success: #2f7d5b;
+  --color-warning: #b8791f;
+  --color-danger: #b23b3b;
+
+  --radius-control: 8px;
+  --radius-panel: 12px;
+
+  --text-2xs: 11px;
+  --text-2xs--line-height: 1.4;
+}
+
+/* ─── Светлая тема (по умолчанию) ─────────────────────────────────────────── */
+
+:root,
+:root[data-theme='light'] {
+  --c-canvas: #f4f2ef;
+  --c-surface: #ffffff;
+  --c-raised: #faf9f7;
+  --c-line: #e3ded7;
+  --c-line-strong: #cdc5ba;
+  --c-ink: #193741;
+  --c-muted: #6b7a80;
+  --c-faint: #97a3a8;
+}
+
+/* ─── Тёмная тема ─────────────────────────────────────────────────────────── */
+
+:root[data-theme='dark'] {
+  --c-canvas: #10242b;
+  --c-surface: #16303a;
+  --c-raised: #1d414d;
+  --c-line: #2a4c58;
+  --c-line-strong: #3a606d;
+  --c-ink: #ebe7e1;
+  --c-muted: #9fb2b9;
+  --c-faint: #6f868f;
+}
+
+/* ─── Акцент ──────────────────────────────────────────────────────────────── */
+
+:root,
+:root[data-accent='honey'] {
+  --c-accent: #c08b3e;
+  --c-accent-ink: #ffffff;
+  --c-accent-soft: color-mix(in srgb, #eac486 26%, transparent);
+}
+:root[data-accent='teal'] {
+  --c-accent: #1d414d;
+  --c-accent-ink: #ebe7e1;
+  --c-accent-soft: color-mix(in srgb, #1d414d 14%, transparent);
+}
+:root[data-accent='sky'] {
+  --c-accent: #2b6f9e;
+  --c-accent-ink: #ffffff;
+  --c-accent-soft: color-mix(in srgb, #2b6f9e 16%, transparent);
+}
+:root[data-accent='rose'] {
+  --c-accent: #a5495c;
+  --c-accent-ink: #ffffff;
+  --c-accent-soft: color-mix(in srgb, #a5495c 16%, transparent);
+}
+
+/* В тёмной теме медовый должен светиться, а не тускнеть */
+:root[data-theme='dark'][data-accent='honey'] {
+  --c-accent: #eac486;
+  --c-accent-ink: #193741;
+}
+:root[data-theme='dark'][data-accent='teal'] {
+  --c-accent: #7fb3c4;
+  --c-accent-ink: #10242b;
+}
+
+/* ─── Плотность ───────────────────────────────────────────────────────────── */
+
+:root,
+:root[data-density='comfortable'] {
+  --row-height: 3rem;
+  --pad-cell: 0.75rem;
+  --pad-panel: 1.25rem;
+  --gap-stack: 1rem;
+}
+
+:root[data-density='compact'] {
+  --row-height: 2.25rem;
+  --pad-cell: 0.375rem;
+  --pad-panel: 0.875rem;
+  --gap-stack: 0.625rem;
+}
+
+@layer base {
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  ::selection {
+    background-color: var(--color-accent-soft);
+  }
+
+  /* Скроллбары в тон теме — иначе тёмный интерфейс выглядит «недоделанным» */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-line-strong) transparent;
+  }
+}
+
+@layer components {
+  .panel {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-panel);
+  }
+
+  .label-caps {
+    font-size: var(--text-2xs);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+  }
+
+  /* Ячейка таблицы: высота и отступы едут от выбранной плотности */
+  .cell {
+    padding-inline: 0.75rem;
+    padding-block: var(--pad-cell);
+    height: var(--row-height);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

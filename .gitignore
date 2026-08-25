@@ -1,0 +1,24 @@
+node_modules/
+dist/
+.env
+.env.local
+.env.*.local
+*.log
+.DS_Store
+
+# Playwright
+e2e/.artifacts/
+e2e/.report/
+playwright-report/
+test-results/
+
+# Админка и бэкенд — свои проекты со своими зависимостями
+admin/node_modules/
+admin/dist/
+backend/node_modules/
+backend/dist/
+e2e/.auth/
+.scratch/
+
+# Артефакты инкрементальной сборки TypeScript
+*.tsbuildinfo
