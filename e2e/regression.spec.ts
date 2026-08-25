@@ -26,8 +26,14 @@ test.describe('Аудит: регрессии', () => {
     expect(new URL(settings.payment.kaspiLink).hostname).not.toContain('zagatovky');
   });
 
-  /** AUDIT #5 (P1): сервер принимал телефон вообще без цифр. */
-  test('@smoke сервер отклоняет телефон без цифр', async ({ request }) => {
+  /**
+   * AUDIT #5 (P1): сервер принимал телефон вообще без цифр.
+   *
+   * Без @smoke сознательно: тест шлёт POST /orders, а такие заявки на проде
+   * упираются в лимит 10 за 10 минут и возвращают 429 вместо ожидаемого 400.
+   * По уговору @smoke — только чтение, безопасное для прода.
+   */
+  test('сервер отклоняет телефон без цифр', async ({ request }) => {
     const products = await (await request.get(`${API}/catalog/products?limit=1`)).json();
     const productId = products.items[0].id as string;
 
