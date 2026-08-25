@@ -5,12 +5,42 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#193741" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 
     <title>ZAGATOVKY — заготовки для дома и заведений</title>
     <meta
       name="description"
       content="Нарезанные, взвешенные и упакованные заготовки для готовки. Алматы, доставка в день нарезки."
     />
+    <link rel="canonical" href="https://zagatovky.men/" />
+
+    <!--
+      Ссылку на магазин кидают в WhatsApp, Telegram и Instagram — там карточку
+      рисуют по OG-тегам. Без них в чате появлялась голая строка с адресом.
+      Теги статические: мессенджеры не выполняют JS, поэтому подставить их из
+      React уже поздно. Для карточки конкретного товара нужен пререндер или
+      отдача мета-тегов ботам с бэкенда — см. AUDIT.md, п. 3.
+    -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="ZAGATOVKY" />
+    <meta property="og:locale" content="ru_RU" />
+    <meta property="og:url" content="https://zagatovky.men/" />
+    <meta property="og:title" content="ZAGATOVKY — заготовки для дома и заведений" />
+    <meta
+      property="og:description"
+      content="Нарезанные, взвешенные и упакованные заготовки для готовки. Алматы, доставка в день нарезки."
+    />
+    <meta property="og:image" content="https://zagatovky.men/og-cover.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="ZAGATOVKY — нарезано, взвешено, упаковано" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="ZAGATOVKY — заготовки для дома и заведений" />
+    <meta
+      name="twitter:description"
+      content="Нарезанные, взвешенные и упакованные заготовки для готовки. Алматы, доставка в день нарезки."
+    />
+    <meta name="twitter:image" content="https://zagatovky.men/og-cover.png" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
