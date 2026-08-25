@@ -1,7 +1,9 @@
-# Раздача собранного SPA. Ассеты с хешами кэшируем навсегда,
-# index.html — никогда, иначе пользователи застревают на старой версии.
+# Шаблон конфига: ${PORT} подставляется на старте контейнера.
+# Railway сам назначает порт сервису, поэтому вшивать его в образ нельзя.
+# Подстановку делает штатный entrypoint nginx (envsubst), а NGINX_ENVSUBST_FILTER
+# ограничивает её одной переменной PORT — иначе envsubst съел бы $uri и $host.
 server {
-    listen       8080;
+    listen       ${PORT};
     server_name  _;
     root         /usr/share/nginx/html;
     index        index.html;
@@ -10,12 +12,14 @@ server {
     gzip_types text/css application/javascript application/json image/svg+xml;
     gzip_min_length 1024;
 
+    # Файлы с хешем в имени не меняются — кэшируем навсегда
     location /assets/ {
         expires 1y;
         add_header Cache-Control "public, immutable";
         try_files $uri =404;
     }
 
+    # index.html не кэшируем, иначе пользователи застревают на старой версии
     location = /index.html {
         add_header Cache-Control "no-cache, must-revalidate";
     }
