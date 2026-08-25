@@ -6,6 +6,14 @@ import { test, expect } from './fixtures';
  * Тесты без тега создают заказы и рассчитаны на дев-стек.
  */
 
+/**
+ * Кнопка отправки заказа зависит от ширины экрана: на телефоне это липкая
+ * нижняя панель, на десктопе — кнопка в сводке справа. Кликаем по видимой.
+ */
+const submitOrder = async (page: Page) => {
+  await page.locator('[data-testid^="submit-order"]:visible').click();
+};
+
 const dismissCart = async (page: Page) => {
   const drawer = page.getByTestId('cart-drawer');
   if (await drawer.isVisible().catch(() => false)) await page.keyboard.press('Escape');
@@ -100,7 +108,7 @@ test.describe('Витрина', () => {
 
     await expect(page.getByTestId('checkout-total')).toBeVisible();
 
-    await page.getByTestId('submit-order').click();
+    await submitOrder(page);
 
     await expect(page.getByTestId('order-number')).toContainText(/ZG-\d{6}/, { timeout: 15_000 });
     await expect(page.getByTestId('open-chat')).toHaveAttribute('href', /wa\.me/);
@@ -117,7 +125,7 @@ test.describe('Витрина', () => {
     await page.getByTestId('input-name').fill('Playwright Тест');
     await page.getByTestId('input-phone').fill('+7 700 123 45 67');
     await page.getByTestId('input-address').fill('Алматы, Абая 10');
-    await page.getByTestId('submit-order').click();
+    await submitOrder(page);
 
     await expect(page.getByText(/Минимальная сумма заказа/)).toBeVisible();
   });

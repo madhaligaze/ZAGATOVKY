@@ -15,8 +15,11 @@ type Props = {
 export const PageState = ({ isError, onRetry, title, hint }: Props) => {
   const { t } = useLocale();
 
+  // Высота во весь экран под шапкой: иначе во время загрузки в кадр попадает
+  // подвал, страница дёргается, а браузер считает крупнейшим элементом
+  // логотип из футера вместо заголовка первого экрана.
   return (
-    <div className="grid min-h-[60vh] place-items-center px-6 text-center">
+    <div className="grid min-h-[calc(100dvh-4.5rem)] place-items-center px-6 text-center">
       <div className="flex flex-col items-center gap-4">
         <span className="h-px w-10 bg-honey" />
         <p className="font-editorial text-heading-sm">

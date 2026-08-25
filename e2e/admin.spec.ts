@@ -10,6 +10,11 @@ const ADMIN = process.env.E2E_ADMIN_BASE_URL ?? 'http://localhost:5174';
 const EMAIL = process.env.E2E_ADMIN_EMAIL ?? 'owner@zagatovky.kz';
 const PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? 'zagatovky123';
 
+/** Кнопка отправки заказа отличается на телефоне и десктопе — кликаем видимую. */
+const submitOrder = async (page: Page) => {
+  await page.locator('[data-testid^="submit-order"]:visible').click();
+};
+
 /** Вход в кабинет и переход к нужному разделу. */
 const openAdmin = async (page: Page, path = '/') => {
   await page.goto(`${ADMIN}/login`);
@@ -150,7 +155,7 @@ test.describe('Админ-кабинет', () => {
     await page.getByTestId('input-name').fill('Канбан Тест');
     await page.getByTestId('input-phone').fill('+7 700 555 44 33');
     await page.getByTestId('input-address').fill('Алматы, Достык 1');
-    await page.getByTestId('submit-order').click();
+    await submitOrder(page);
 
     const numberText = await page
       .getByTestId('order-number')

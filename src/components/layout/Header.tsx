@@ -37,10 +37,10 @@ export const Header = () => {
         scrolled ? 'border-b border-hairline' : 'border-b border-transparent',
       )}
     >
-      <div className="container-page flex h-18 items-center justify-between gap-6 py-4">
+      <div className="container-page flex h-18 items-center justify-between gap-3 py-4 lg:gap-6">
         <Link
           to="/"
-          className="font-editorial text-heading-sm leading-none tracking-tight"
+          className="font-editorial text-[1.125rem] leading-none tracking-tight sm:text-heading-sm"
           aria-label="ZAGATOVKY"
         >
           ZAGATOVKY
@@ -65,8 +65,10 @@ export const Header = () => {
           ))}
         </nav>
 
-        <div className="flex items-center gap-2">
-          {/* Переключатель языка — две пилюли, текущая залита тилом */}
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* Переключатель языка — две пилюли, текущая залита тилом.
+              На узких экранах поджимаем отступы и трекинг: иначе шапка
+              с логотипом, языком, корзиной и бургером не помещается в 390px. */}
           <div
             className="flex items-center rounded-pill border border-hairline p-0.5"
             role="group"
@@ -80,7 +82,7 @@ export const Header = () => {
                 aria-pressed={locale === code}
                 data-testid={`locale-${code}`}
                 className={cn(
-                  'rounded-pill px-3 py-1.5 text-caption uppercase tracking-[0.125em] transition-colors',
+                  'rounded-pill px-2 py-1.5 text-caption uppercase tracking-normal transition-colors sm:px-3 sm:tracking-[0.125em]',
                   locale === code ? 'bg-mountain text-parchment' : 'text-stone hover:text-mountain',
                 )}
               >

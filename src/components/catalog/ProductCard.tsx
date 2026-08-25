@@ -71,9 +71,11 @@ export const ProductCard = ({ product, className }: Props) => {
         )}
       </div>
 
-      <div className="flex flex-1 flex-col gap-3 border-t border-hairline p-5">
-        <div className="flex items-start justify-between gap-3">
-          <h3 className="text-subheading font-semibold leading-tight">
+      {/* В две колонки на телефоне карточка узкая: вес уходит под название,
+          цена и кнопка встают друг под друга — иначе строка не помещается. */}
+      <div className="flex flex-1 flex-col gap-2 border-t border-hairline p-4 sm:gap-3 sm:p-5">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+          <h3 className="text-body font-semibold leading-tight sm:text-subheading">
             <Link to={`/product/${product.slug}`} className="hover:text-teal">
               {name}
             </Link>
@@ -84,10 +86,10 @@ export const ProductCard = ({ product, className }: Props) => {
         </div>
 
         {pick(product.short, locale) && (
-          <p className="text-body-sm text-stone">{pick(product.short, locale)}</p>
+          <p className="hidden text-body-sm text-stone sm:block">{pick(product.short, locale)}</p>
         )}
 
-        <div className="mt-auto flex items-end justify-between gap-3 pt-2">
+        <div className="mt-auto flex flex-col items-stretch gap-2 pt-2 sm:flex-row sm:items-end sm:justify-between sm:gap-3">
           <div className="flex flex-col">
             {product.compareAtPrice && (
               <span className="text-body-sm text-stone line-through">
@@ -104,7 +106,7 @@ export const ProductCard = ({ product, className }: Props) => {
               {t('product.outOfStock')}
             </span>
           ) : qty > 0 ? (
-            <div className="flex items-center gap-1 rounded-pill border border-teal/40">
+            <div className="flex items-center justify-between gap-1 rounded-pill border border-teal/40 sm:justify-start">
               <button
                 type="button"
                 onClick={() => setQty(product.id, qty - 1)}
@@ -126,7 +128,12 @@ export const ProductCard = ({ product, className }: Props) => {
               </button>
             </div>
           ) : (
-            <Button size="sm" onClick={handleAdd} data-testid={`add-${product.slug}`}>
+            <Button
+              size="sm"
+              onClick={handleAdd}
+              data-testid={`add-${product.slug}`}
+              className="w-full sm:w-auto"
+            >
               {t('product.addToCart')}
             </Button>
           )}

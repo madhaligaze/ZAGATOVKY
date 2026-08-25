@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   BarChart3,
   Boxes,
@@ -7,6 +7,7 @@ import {
   Image as ImageIcon,
   LayoutTemplate,
   LogOut,
+  Menu,
   PanelLeftClose,
   PanelLeftOpen,
   Search,
@@ -39,6 +40,12 @@ export const AppShell = () => {
   const patch = useWorkspace((state) => state.patchWorkspace);
 
   const [paletteOpen, setPaletteOpen] = useState(false);
+  // На телефоне меню выезжает поверх контента: постоянная колонка в 240px
+  // съедала бы больше половины экрана и таблицы становились нечитаемыми.
+  const [menuOpen, setMenuOpen] = useState(false);
+  const location = useLocation();
+
+  useEffect(() => setMenuOpen(false), [location.pathname, location.search]);
 
   // Cmd/Ctrl+K — командная палитра, привычный жест для рабочего инструмента
   useEffect(() => {
@@ -54,10 +61,21 @@ export const AppShell = () => {
 
   return (
     <div className="flex min-h-dvh">
+      {/* Затемнение под выехавшим меню — только на телефоне */}
+      {menuOpen && (
+        <button
+          type="button"
+          aria-label="Закрыть меню"
+          onClick={() => setMenuOpen(false)}
+          className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+        />
+      )}
+
       <aside
         className={cn(
-          'sticky top-0 flex h-dvh shrink-0 flex-col border-r border-line bg-surface transition-[width] duration-200',
-          collapsed ? 'w-16' : 'w-60',
+          'fixed inset-y-0 left-0 z-50 flex h-dvh w-60 shrink-0 flex-col border-r border-line bg-surface transition-transform duration-200 lg:sticky lg:top-0 lg:translate-x-0 lg:transition-[width]',
+          menuOpen ? 'translate-x-0' : '-translate-x-full',
+          collapsed ? 'lg:w-16' : 'lg:w-60',
         )}
       >
         <div className="flex h-14 items-center gap-2 border-b border-line px-4">
@@ -95,7 +113,7 @@ export const AppShell = () => {
           ))}
         </nav>
 
-        <div className="border-t border-line p-2">
+        <div className="hidden border-t border-line p-2 lg:block">
           <Button
             variant="ghost"
             size={collapsed ? 'icon' : 'md'}
@@ -110,15 +128,25 @@ export const AppShell = () => {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-line bg-surface/95 px-5 backdrop-blur">
+        <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-line bg-surface/95 px-3 backdrop-blur sm:gap-3 sm:px-5">
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Меню"
+            onClick={() => setMenuOpen(true)}
+            className="shrink-0 lg:hidden"
+          >
+            <Menu size={18} strokeWidth={1.6} />
+          </Button>
+
           <button
             type="button"
             onClick={() => setPaletteOpen(true)}
-            className="flex h-9 flex-1 items-center gap-2 rounded-control border border-line px-3 text-left text-sm text-faint transition-colors hover:border-line-strong sm:max-w-sm"
+            className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-control border border-line px-3 text-left text-sm text-faint transition-colors hover:border-line-strong sm:max-w-sm"
           >
-            <Search size={15} strokeWidth={1.6} />
-            <span className="flex-1 truncate">Поиск и команды</span>
-            <kbd className="rounded border border-line px-1.5 py-0.5 text-2xs text-muted">
+            <Search size={15} strokeWidth={1.6} className="shrink-0" />
+            <span className="hidden flex-1 truncate sm:block">Поиск и команды</span>
+            <kbd className="ml-auto hidden rounded border border-line px-1.5 py-0.5 text-2xs text-muted sm:block">
               Ctrl K
             </kbd>
           </button>
@@ -150,7 +178,7 @@ export const AppShell = () => {
           </div>
         </header>
 
-        <main className="flex-1 p-5">
+        <main className="min-w-0 flex-1 p-3 sm:p-5">
           <Outlet />
         </main>
       </div>

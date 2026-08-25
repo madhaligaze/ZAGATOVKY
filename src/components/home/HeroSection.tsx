@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowDown } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
@@ -29,7 +29,10 @@ export const HeroSection = ({ section, highlight }: Props) => {
   const title = payload.title?.[locale] ?? '';
   const lines = title.split('\n');
 
-  useEffect(() => {
+  // useLayoutEffect, а не useEffect: начальное состояние анимации выставляется
+  // до первой отрисовки. В разметке элементы видимы — если скрипт задержится
+  // или упадёт, посетитель увидит текст, а не пустой тёмный экран.
+  useLayoutEffect(() => {
     const root = rootRef.current;
     if (!root) return;
 
@@ -46,26 +49,26 @@ export const HeroSection = ({ section, highlight }: Props) => {
 
       // Кинематографичный вход: строки заголовка выезжают из-под маски,
       // панель раскрывается clip-path'ом, остальное подтягивается следом.
+      //
+      // Тайминги намеренно плотные: заголовок и подзаголовок — самый крупный
+      // элемент первого экрана, и пока они не отрисованы, браузер считает
+      // страницу незагруженной. Каждая доля секунды задержки здесь напрямую
+      // ухудшает LCP, поэтому вход начинается сразу и укладывается в ~1 секунду.
       const timeline = gsap.timeline({ defaults: { ease: 'power3.out' } });
 
       timeline
-        .fromTo(
-          lineTargets,
-          { yPercent: 115 },
-          { yPercent: 0, duration: 1, stagger: 0.09 },
-          0.15,
-        )
+        .fromTo(lineTargets, { yPercent: 115 }, { yPercent: 0, duration: 0.8, stagger: 0.07 }, 0)
         .fromTo(
           panel,
           { clipPath: 'inset(0% 0% 100% 0%)', opacity: 0, scale: 1.06 },
-          { clipPath: 'inset(0% 0% 0% 0%)', opacity: 1, scale: 1, duration: 1.2 },
-          0.3,
+          { clipPath: 'inset(0% 0% 0% 0%)', opacity: 1, scale: 1, duration: 1 },
+          0.15,
         )
         .fromTo(
           fadeTargets,
           { y: 20, opacity: 0 },
-          { y: 0, opacity: 1, duration: 0.7, stagger: 0.08 },
-          0.6,
+          { y: 0, opacity: 1, duration: 0.55, stagger: 0.07 },
+          0.3,
         );
 
       // Мягкий параллакс панели на скролле
@@ -88,7 +91,7 @@ export const HeroSection = ({ section, highlight }: Props) => {
       <div className="container-page grid items-center gap-12 py-20 md:py-28 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16 lg:py-32">
         <div>
           {payload.eyebrow?.[locale] && (
-            <p data-hero-fade className="eyebrow gold-rule text-parchment/70 opacity-0">
+            <p data-hero-fade className="eyebrow gold-rule text-parchment/70">
               {payload.eyebrow[locale]}
             </p>
           )}
@@ -104,13 +107,13 @@ export const HeroSection = ({ section, highlight }: Props) => {
           {payload.subtitle?.[locale] && (
             <p
               data-hero-fade
-              className="mt-8 max-w-lg text-lead text-parchment/70 opacity-0"
+              className="mt-8 max-w-lg text-lead text-parchment/70"
             >
               {payload.subtitle[locale]}
             </p>
           )}
 
-          <div data-hero-fade className="mt-10 flex flex-wrap gap-3 opacity-0">
+          <div data-hero-fade className="mt-10 flex flex-wrap gap-3">
             <Button asChild variant="solidLight" size="lg">
               <Link to={payload.primaryCta?.href ?? '/catalog'}>
                 {payload.primaryCta?.[locale] ?? 'Смотреть каталог'}
@@ -131,7 +134,7 @@ export const HeroSection = ({ section, highlight }: Props) => {
             заготовки» набранная типографикой: та же система, тот же ритм. */}
         <div
           data-hero-panel
-          className="relative aspect-[4/5] w-full max-w-md justify-self-center bg-parchment text-mountain opacity-0 lg:justify-self-end"
+          className="relative aspect-[4/5] w-full max-w-md justify-self-center bg-parchment text-mountain lg:justify-self-end"
         >
           {highlight?.image ? (
             <img

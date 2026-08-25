@@ -6,6 +6,7 @@ import { ProductCard } from '@/components/catalog/ProductCard';
 import { PageState } from '@/components/ui/PageState';
 import { useLocale } from '@/hooks/useLocale';
 import { Flip, gsap, prefersReducedMotion } from '@/lib/motion';
+import { ArrowUpDown } from 'lucide-react';
 import { pick } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import type { ProductQuery } from '@/types/catalog';
@@ -97,41 +98,56 @@ export const CatalogPage = () => {
         </div>
       </section>
 
-      {/* Липкий рельс фильтров — остаётся под шапкой при прокрутке каталога */}
+      {/* Липкий рельс фильтров — остаётся под шапкой при прокрутке каталога.
+          На телефоне категории не переносятся на вторую строку, а прокручиваются
+          вбок: иначе рельс занимал бы треть экрана и оттеснял сами товары. */}
       <div className="sticky top-18 z-40 border-b border-hairline bg-snow/95 backdrop-blur-md">
-        <div className="container-page flex flex-wrap items-center gap-2 py-4">
-          {filters.map((filter) => (
-            <button
-              key={filter.label}
-              type="button"
-              onClick={() => {
-                setParam('type', undefined);
-                setParam('category', filter.value);
-              }}
-              data-testid={`filter-${filter.value ?? 'all'}`}
-              className={cn(
-                'rounded-pill border px-4 py-2 text-caption uppercase tracking-[0.125em] transition-colors',
-                filter.active
-                  ? 'border-mountain bg-mountain text-parchment'
-                  : 'border-hairline text-mountain hover:border-teal hover:bg-parchment',
-              )}
-            >
-              {filter.label}
-            </button>
-          ))}
-
-          <select
-            value={sort}
-            onChange={(event) => setParam('sort', event.target.value)}
-            aria-label={t('catalog.sort.label')}
-            className="ml-auto rounded-pill border border-hairline bg-transparent px-4 py-2 text-caption uppercase tracking-[0.125em] text-mountain hover:border-teal focus-visible:border-teal"
-          >
-            {sorts.map((value) => (
-              <option key={value} value={value}>
-                {t(`catalog.sort.${value}`)}
-              </option>
+        <div className="container-page flex items-center gap-2 py-3 lg:py-4">
+          {/* Затухание у правого края: обрезанная пилюля так читается как
+              «список продолжается», а не как сломанная вёрстка. */}
+          <div className="-mx-[var(--spacing-gutter)] flex flex-1 gap-2 overflow-x-auto px-[var(--spacing-gutter)] [mask-image:linear-gradient(to_right,black_calc(100%-2.5rem),transparent)] [scrollbar-width:none] lg:mx-0 lg:flex-wrap lg:px-0 lg:[mask-image:none] [&::-webkit-scrollbar]:hidden">
+            {filters.map((filter) => (
+              <button
+                key={filter.label}
+                type="button"
+                onClick={() => {
+                  setParam('type', undefined);
+                  setParam('category', filter.value);
+                }}
+                data-testid={`filter-${filter.value ?? 'all'}`}
+                className={cn(
+                  'shrink-0 rounded-pill border px-4 py-2 text-caption uppercase tracking-[0.125em] transition-colors',
+                  filter.active
+                    ? 'border-mountain bg-mountain text-parchment'
+                    : 'border-hairline text-mountain hover:border-teal hover:bg-parchment',
+                )}
+              >
+                {filter.label}
+              </button>
             ))}
-          </select>
+          </div>
+
+          {/* На телефоне сортировка сжата до иконки: подпись «По умолчанию»
+              занимала половину строки и не давала листать категории.
+              Сам select остаётся настоящим — открывается родной выбор системы. */}
+          <div className="relative shrink-0">
+            <span className="pointer-events-none flex h-10 w-10 items-center justify-center rounded-pill border border-hairline text-mountain lg:hidden">
+              <ArrowUpDown size={15} strokeWidth={1.75} />
+            </span>
+
+            <select
+              value={sort}
+              onChange={(event) => setParam('sort', event.target.value)}
+              aria-label={t('catalog.sort.label')}
+              className="absolute inset-0 h-full w-full cursor-pointer opacity-0 lg:relative lg:h-auto lg:w-auto lg:rounded-pill lg:border lg:border-hairline lg:bg-transparent lg:px-4 lg:py-2 lg:text-caption lg:uppercase lg:tracking-[0.125em] lg:text-mountain lg:opacity-100 lg:hover:border-teal"
+            >
+              {sorts.map((value) => (
+                <option key={value} value={value}>
+                  {t(`catalog.sort.${value}`)}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
@@ -152,7 +168,7 @@ export const CatalogPage = () => {
                 ref={gridRef}
                 data-testid="product-grid"
                 className={cn(
-                  'grid gap-6 transition-opacity sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4',
+                  'grid grid-cols-2 gap-3 transition-opacity sm:gap-6 lg:grid-cols-3 xl:grid-cols-4',
                   isPlaceholderData && 'opacity-60',
                 )}
               >

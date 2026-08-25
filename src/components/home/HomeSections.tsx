@@ -20,7 +20,7 @@ const text = (value: unknown, locale: Locale): string =>
 
 /** Сетка товаров, общая для секций «Наборы» и «Подборка». */
 const ProductGrid = ({ products }: { products: ProductCardData[] }) => (
-  <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+  <div className="mt-12 grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-4">
     {products.map((product) => (
       <ProductCard key={product.id} product={product} className="reveal" />
     ))}

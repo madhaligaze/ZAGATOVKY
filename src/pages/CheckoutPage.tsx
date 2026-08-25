@@ -151,18 +151,21 @@ export const CheckoutPage = () => {
   }
 
   return (
-    <section className="band-snow pb-24 pt-14">
+    <section className="band-snow pb-40 pt-14 lg:pb-24">
       <div className="container-page">
         <p className="eyebrow gold-rule text-stone">{t('cart.checkout')}</p>
         <h1 className="font-editorial mt-4 text-display">{t('checkout.title')}</h1>
         <p className="mt-4 max-w-xl text-lead text-stone">{t('checkout.subtitle')}</p>
 
         <form
+          id="checkout-form"
           onSubmit={handleSubmit}
           noValidate
           className="mt-14 grid gap-14 lg:grid-cols-[1.1fr_0.9fr] lg:gap-20"
         >
-          <div className="flex flex-col gap-8">
+          {/* min-w-0 не даёт длинной кнопке в сводке растянуть колонку сетки
+              шире экрана — на телефоне из-за этого появлялся боковой скролл */}
+          <div className="flex min-w-0 flex-col gap-8">
             <div className="grid gap-8 sm:grid-cols-2">
               <Field label={t('checkout.name')} error={errors.customerName}>
                 <input
@@ -261,7 +264,7 @@ export const CheckoutPage = () => {
           </div>
 
           {/* Сводка заказа — липкая, чтобы итог был виден при заполнении формы */}
-          <aside className="h-fit border border-hairline bg-parchment p-6 lg:sticky lg:top-24">
+          <aside className="h-fit min-w-0 border border-hairline bg-parchment p-6 lg:sticky lg:top-24">
             <p className="eyebrow text-stone">{t('cart.title')}</p>
 
             <ul className="mt-5 flex flex-col gap-4 border-b border-hairline pb-5">
@@ -319,8 +322,8 @@ export const CheckoutPage = () => {
               variant="solid"
               size="lg"
               disabled={mutation.isPending}
-              data-testid="submit-order"
-              className="mt-6 w-full"
+              data-testid="submit-order-desktop"
+              className="mt-6 hidden w-full whitespace-normal lg:inline-flex"
             >
               {mutation.isPending ? t('checkout.submitting') : t('checkout.submit')}
             </Button>
@@ -330,6 +333,33 @@ export const CheckoutPage = () => {
             </p>
           </aside>
         </form>
+      </div>
+
+      {/* На телефоне итог и кнопка всегда под рукой: иначе после длинной формы
+          до них нужно долго скроллить, и часть заказов теряется на этом шаге. */}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-hairline bg-snow/95 px-[var(--spacing-gutter)] py-3 backdrop-blur-md lg:hidden">
+        <div className="flex items-center gap-3">
+          <div className="min-w-0">
+            <p className="text-caption uppercase tracking-[0.125em] text-stone">
+              {t('cart.total')}
+            </p>
+            <p className="font-editorial text-heading-sm leading-tight tabular-nums">
+              {formatPrice(subtotal + deliveryFee, locale)}
+            </p>
+          </div>
+
+          <Button
+            type="submit"
+            form="checkout-form"
+            variant="solid"
+            size="lg"
+            disabled={mutation.isPending}
+            data-testid="submit-order"
+            className="ml-auto min-w-0 flex-1 whitespace-normal px-4 text-center leading-tight"
+          >
+            {mutation.isPending ? t('checkout.submitting') : t('checkout.submit')}
+          </Button>
+        </div>
       </div>
     </section>
   );

@@ -38,7 +38,7 @@ const PriceCell = ({ product, onSave }: { product: AdminProduct; onSave: (price:
           setValue(String(product.price));
           setEditing(true);
         }}
-        className="w-full rounded-control px-2 py-1 text-right text-sm tabular-nums transition-colors hover:bg-raised"
+        className="w-full whitespace-nowrap rounded-control px-2 py-1 text-right text-sm tabular-nums transition-colors hover:bg-raised"
         title="Изменить цену"
       >
         {money(product.price)}
@@ -344,7 +344,7 @@ export const ProductsPage = () => {
         </div>
       )}
 
-      <div className="panel overflow-x-auto">
+      <div className="panel max-w-full overflow-x-auto">
         {isPending ? (
           <Spinner />
         ) : items.length === 0 ? (
@@ -358,7 +358,10 @@ export const ProductsPage = () => {
             }
           />
         ) : (
-          <table className="w-full min-w-[52rem] border-collapse" data-testid="products-table">
+          <table
+            className="hidden w-full min-w-[52rem] border-collapse lg:table"
+            data-testid="products-table"
+          >
             <thead>
               <tr className="border-b border-line text-left">
                 <th className="cell w-10">
@@ -526,6 +529,82 @@ export const ProductsPage = () => {
               ))}
             </tbody>
           </table>
+        )}
+
+        {/* Телефонная версия того же списка: таблица с семью колонками
+            на 390px нечитаема, а править цену и наличие нужно и с телефона. */}
+        {!isPending && items.length > 0 && (
+          <ul className="flex flex-col divide-y divide-[color:var(--color-line)] lg:hidden">
+            {items.map((product) => (
+              <li
+                key={product.id}
+                className={cn('flex gap-3 p-3', !product.isActive && 'opacity-60')}
+              >
+                {product.image ? (
+                  <img src={product.image.url} alt="" className="h-16 w-14 rounded object-cover" />
+                ) : (
+                  <span className="grid h-16 w-14 shrink-0 place-items-center rounded border border-dashed border-line-strong text-2xs text-faint">
+                    —
+                  </span>
+                )}
+
+                <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                  <Link
+                    to={`/products/${product.id}`}
+                    className="truncate text-sm font-medium hover:text-accent"
+                  >
+                    {product.name.ru}
+                  </Link>
+
+                  <div className="flex flex-wrap items-center gap-1.5 text-2xs text-faint">
+                    {product.type === 'BUNDLE' && <Chip tone="accent">Набор</Chip>}
+                    <span>{product.category?.name.ru ?? 'без категории'}</span>
+                    <span>·</span>
+                    <span>{weight(product.weight.value, product.weight.unit)}</span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <div className="w-24 shrink-0">
+                      <PriceCell
+                        product={product}
+                        onSave={(price) => bulk.mutate({ ids: [product.id], patch: { price } })}
+                      />
+                    </div>
+
+                    <Select
+                      value={product.stockStatus}
+                      onChange={(event) =>
+                        bulk.mutate({
+                          ids: [product.id],
+                          patch: { stockStatus: event.target.value },
+                        })
+                      }
+                      className="h-7 w-auto py-0 text-2xs"
+                      aria-label="Наличие"
+                    >
+                      {Object.entries(stockLabels).map(([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      ))}
+                    </Select>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        bulk.mutate({ ids: [product.id], patch: { isActive: !product.isActive } })
+                      }
+                      className="ml-auto"
+                    >
+                      <Chip tone={product.isActive ? 'success' : 'neutral'}>
+                        {product.isActive ? 'Показан' : 'Скрыт'}
+                      </Chip>
+                    </button>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
     </div>
