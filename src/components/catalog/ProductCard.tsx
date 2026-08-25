@@ -111,7 +111,7 @@ export const ProductCard = ({ product, className }: Props) => {
                 type="button"
                 onClick={() => setQty(product.id, qty - 1)}
                 aria-label={t('cart.remove')}
-                className="grid h-10 w-10 place-items-center rounded-pill text-mountain hover:bg-parchment"
+                className="grid h-11 w-11 place-items-center rounded-pill text-mountain hover:bg-parchment"
               >
                 <Minus size={16} strokeWidth={1.75} />
               </button>
@@ -122,17 +122,19 @@ export const ProductCard = ({ product, className }: Props) => {
                 type="button"
                 onClick={() => setQty(product.id, qty + 1)}
                 aria-label={t('product.addToCart')}
-                className="grid h-10 w-10 place-items-center rounded-pill text-mountain hover:bg-parchment"
+                className="grid h-11 w-11 place-items-center rounded-pill text-mountain hover:bg-parchment"
               >
                 <Plus size={16} strokeWidth={1.75} />
               </button>
             </div>
           ) : (
             <Button
-              size="sm"
+              /* md, а не sm: sm даёт 40px по высоте, а это основная кнопка
+                 покупки на телефоне — держим рекомендованные 44px. */
+              size="md"
               onClick={handleAdd}
               data-testid={`add-${product.slug}`}
-              className="w-full sm:w-auto"
+              className="w-full px-5 text-caption tracking-[0.125em] sm:w-auto"
             >
               {t('product.addToCart')}
             </Button>
