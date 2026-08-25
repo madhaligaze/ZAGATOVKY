@@ -48,7 +48,13 @@ export const CartDrawer = () => {
   const subtotal = useCart(selectSubtotal);
   const count = useCart(selectCount);
 
-  const freeFrom = settings?.delivery.freeFrom ?? null;
+  /*
+   * Полоса «до бесплатной доставки» имеет смысл, только если доставка вообще
+   * платная. При baseFee = 0 корзина звала добрать до порога, а на оформлении
+   * тут же стояло «Доставка — бесплатно»: два разных обещания в одной воронке.
+   */
+  const freeFrom =
+    settings && settings.delivery.baseFee > 0 ? settings.delivery.freeFrom : null;
   const remainingToFree = freeFrom === null ? 0 : Math.max(freeFrom - subtotal, 0);
   const progress = freeFrom === null ? 100 : Math.min((subtotal / freeFrom) * 100, 100);
   const belowMinimum = settings ? subtotal < settings.delivery.minOrder : false;
