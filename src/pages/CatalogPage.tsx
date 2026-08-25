@@ -126,11 +126,19 @@ export const CatalogPage = () => {
       {/* Липкий рельс фильтров — остаётся под шапкой при прокрутке каталога.
           На телефоне категории не переносятся на вторую строку, а прокручиваются
           вбок: иначе рельс занимал бы треть экрана и оттеснял сами товары. */}
-      <div className="sticky top-18 z-40 border-b border-hairline bg-snow/95 backdrop-blur-md">
+      {/* overflow-x-clip обязателен для Safari. Сама лента ниже прокручивается
+          корректно (её ширина равна экрану), но WebKit поднимает содержимое
+          скролл-контейнера в scrollWidth предков — и вбок уезжала вся страница
+          каталога: 449px при экране 390px. Chromium так не делает, поэтому баг
+          виден только на iPhone. clip, а не hidden: не создаёт лишний скролл-бокс
+          и не мешает sticky у этого же элемента. */}
+      <div className="sticky top-18 z-40 overflow-x-clip border-b border-hairline bg-snow/95 backdrop-blur-md">
         <div className="container-page flex items-center gap-2 py-3 lg:py-4">
           {/* Затухание у правого края: обрезанная пилюля так читается как
               «список продолжается», а не как сломанная вёрстка. */}
-          <div className="-mx-[var(--spacing-gutter)] flex flex-1 gap-2 overflow-x-auto px-[var(--spacing-gutter)] [mask-image:linear-gradient(to_right,black_calc(100%-2.5rem),transparent)] [scrollbar-width:none] lg:mx-0 lg:flex-wrap lg:px-0 lg:[mask-image:none] [&::-webkit-scrollbar]:hidden">
+          {/* min-w-0: у флекс-элемента min-width по умолчанию auto, из-за чего
+              лента не сжимается ниже суммарной ширины пилюль. */}
+          <div className="-mx-[var(--spacing-gutter)] flex min-w-0 flex-1 gap-2 overflow-x-auto px-[var(--spacing-gutter)] [mask-image:linear-gradient(to_right,black_calc(100%-2.5rem),transparent)] [scrollbar-width:none] lg:mx-0 lg:flex-wrap lg:px-0 lg:[mask-image:none] [&::-webkit-scrollbar]:hidden">
             {filters.map((filter) => (
               <button
                 key={filter.key}
