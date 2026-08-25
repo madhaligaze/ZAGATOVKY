@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+# Служебные страницы воронки в индексе не нужны
+Disallow: /checkout
+Disallow: /success
+
+Sitemap: https://zagatovky.men/sitemap.xml

@@ -19,6 +19,9 @@ export const kk: TranslationSchema = {
     from: 'бастап',
     back: 'Артқа',
     more: 'Толығырақ',
+    notFoundTitle: 'Мұндай бет жоқ',
+    notFoundHint: 'Сілтеме ескірген немесе мекенжайда қате бар сияқты. Каталогқа кіріңіз — дайындамалар орнында.',
+    goToCatalog: 'Каталогқа өту',
   },
   catalog: {
     title: 'Дайындамалар каталогы',

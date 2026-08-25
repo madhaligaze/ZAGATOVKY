@@ -1,8 +1,27 @@
 import { Suspense, lazy } from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Link, Route, Routes } from 'react-router-dom';
 import { RootLayout } from '@/components/layout/RootLayout';
 import { HomePage } from '@/pages/HomePage';
 import { PageState } from '@/components/ui/PageState';
+import { Button } from '@/components/ui/Button';
+import { useLocale } from '@/hooks/useLocale';
+
+/** Страница «не найдено»: тот же вертикальный ритм, что у остальных состояний. */
+const NotFoundPage = () => {
+  const { t } = useLocale();
+  return (
+    <div className="grid min-h-[calc(100dvh-4.5rem)] place-items-center px-6 text-center">
+      <div className="flex flex-col items-center gap-4">
+        <span className="h-px w-10 bg-honey" />
+        <p className="font-editorial text-heading-sm">{t('common.notFoundTitle')}</p>
+        <p className="max-w-sm text-body-sm text-stone">{t('common.notFoundHint')}</p>
+        <Button asChild className="mt-2">
+          <Link to="/catalog">{t('common.goToCatalog')}</Link>
+        </Button>
+      </div>
+    </div>
+  );
+};
 
 /**
  * Главная входит в основной бандл — с неё начинается почти каждый визит.
@@ -58,7 +77,10 @@ export const App = () => (
           </Suspense>
         }
       />
-      <Route path="*" element={<Navigate to="/" replace />} />
+      {/* Раньше неизвестный адрес молча уводил на главную: человек по ссылке
+          из чата попадал не туда и не понимал, почему. Теперь честно говорим,
+          что страницы нет, и оставляем выход в каталог. */}
+      <Route path="*" element={<NotFoundPage />} />
     </Route>
   </Routes>
 );
