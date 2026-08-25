@@ -9,21 +9,62 @@ import type { CreatedOrder } from '@/types/catalog';
 
 type State = { order: CreatedOrder; channel: 'WHATSAPP' | 'TELEGRAM' } | null;
 
+/*
+ * Подтверждение жило только в state роутера, поэтому F5 на этой странице (или
+ * возврат по ссылке из истории) уводил на главную: номер заказа, готовый текст
+ * для чата и ссылка на оплату пропадали, хотя сам заказ уже лежал в базе.
+ * Дублируем последнее подтверждение в sessionStorage — оно привязано к вкладке
+ * и само исчезает, когда её закрывают.
+ */
+const LAST_ORDER_KEY = 'zagatovky:last-order';
+
+const remember = (state: NonNullable<State>) => {
+  try {
+    sessionStorage.setItem(LAST_ORDER_KEY, JSON.stringify(state));
+  } catch {
+    // Приватный режим может запретить запись — тогда просто работаем как раньше
+  }
+};
+
+const recall = (): State => {
+  try {
+    const raw = sessionStorage.getItem(LAST_ORDER_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as State;
+    return parsed?.order?.number ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
 export const SuccessPage = () => {
   const { t, locale } = useLocale();
   const { data: settings } = usePublicSettings();
-  const state = (useLocation().state ?? null) as State;
+  const routerState = (useLocation().state ?? null) as State;
+  // Первый рендер после оформления берёт данные из роутера, перезагрузка — из
+  // sessionStorage. Читаем один раз, чтобы вкладка не переигрывала автооткрытие
+  // чата на каждый повторный рендер.
+  const [state] = useState<State>(() => {
+    if (routerState?.order) {
+      remember(routerState);
+      return routerState;
+    }
+    return recall();
+  });
   const [copied, setCopied] = useState(false);
 
   // Открываем чат сами: пользователь уже нажал «оформить», ждать второго клика незачем.
   // Всплывающее окно может быть заблокировано — поэтому кнопка на странице остаётся.
+  // Только для только что оформленного заказа: после F5 страница
+  // восстанавливается из sessionStorage, и открывать чат заново незачем —
+  // человек уже там был и вернулся сюда сознательно.
   useEffect(() => {
-    if (!state?.order) return;
+    if (!routerState?.order) return;
     const timer = window.setTimeout(() => {
-      window.open(state.order.chatUrl, '_blank', 'noopener');
+      window.open(routerState.order.chatUrl, '_blank', 'noopener');
     }, 900);
     return () => window.clearTimeout(timer);
-  }, [state]);
+  }, [routerState]);
 
   if (!state?.order) return <Navigate to="/" replace />;
 
