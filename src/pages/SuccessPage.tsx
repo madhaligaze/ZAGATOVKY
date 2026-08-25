@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react';
 import { Link, Navigate, useLocation } from 'react-router-dom';
-import { Check, Copy, MessageCircle } from 'lucide-react';
+import { Check, Copy, CreditCard, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { useLocale } from '@/hooks/useLocale';
+import { usePublicSettings } from '@/hooks/usePublicSettings';
+import { formatPrice, pick } from '@/lib/format';
 import type { CreatedOrder } from '@/types/catalog';
 
 type State = { order: CreatedOrder; channel: 'WHATSAPP' | 'TELEGRAM' } | null;
 
 export const SuccessPage = () => {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
+  const { data: settings } = usePublicSettings();
   const state = (useLocation().state ?? null) as State;
   const [copied, setCopied] = useState(false);
 
@@ -61,6 +64,51 @@ export const SuccessPage = () => {
             {copied ? t('success.copied') : t('success.copy')}
           </Button>
         </div>
+
+        {/* Оплата по ссылке Kaspi Pay. Ссылка привязана к торговой точке и не знает
+            сумму заказа, поэтому сумму и номер выводим крупно рядом — их вводит
+            сам клиент в приложении. Способ включается в настройках кабинета. */}
+        {order.paymentUrl && (
+          <div className="mt-10 border border-hairline bg-parchment p-6">
+            <p className="eyebrow gold-rule text-stone">{t('payment.title')}</p>
+
+            <p className="mt-4 text-caption uppercase tracking-[0.125em] text-stone">
+              {t('payment.amount')}
+            </p>
+            <p className="font-editorial text-display leading-none" data-testid="payment-amount">
+              {formatPrice(order.total, locale)}
+            </p>
+
+            {settings?.payment.kaspiAmountManual && (
+              <p className="mt-4 text-body-sm text-mountain/80">
+                {t('payment.manualAmount', {
+                  amount: formatPrice(order.total, locale),
+                  number: order.number,
+                })}
+              </p>
+            )}
+
+            <Button asChild variant="solid" size="lg" className="mt-6 w-full sm:w-auto">
+              <a
+                href={order.paymentUrl}
+                target="_blank"
+                rel="noreferrer"
+                data-testid="pay-kaspi"
+              >
+                <CreditCard size={18} strokeWidth={1.5} />
+                {t('payment.kaspi')}
+              </a>
+            </Button>
+
+            {/* Своё примечание из настроек вытесняет общую фразу, а не приписывается
+                к ней: иначе на странице оказывались две подписи об одном и том же. */}
+            <p className="mt-4 text-caption leading-relaxed text-stone">
+              {settings?.payment.note && pick(settings.payment.note, locale)
+                ? pick(settings.payment.note, locale)
+                : t('payment.afterConfirm')}
+            </p>
+          </div>
+        )}
 
         <pre className="mt-12 whitespace-pre-wrap border border-hairline bg-parchment p-6 text-left font-sans text-body-sm leading-relaxed text-mountain/80">
           {order.message}

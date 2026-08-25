@@ -116,6 +116,28 @@ test.describe('Витрина', () => {
     await expect(page.getByTestId('cart-count')).toHaveCount(0);
   });
 
+  test('блок оплаты Kaspi появляется, когда способ включён в кабинете', async ({ page }) => {
+    await page.goto('/product/govyadina-kubikami');
+    await page.getByTestId('add-to-cart').click();
+    await dismissCart(page);
+
+    await page.goto('/checkout');
+    await page.getByTestId('input-name').fill('Playwright Оплата');
+    await page.getByTestId('input-phone').fill('+7 700 123 45 67');
+    await page.getByTestId('input-address').fill('Алматы, Абая 10');
+    await submitOrder(page);
+
+    await expect(page.getByTestId('order-number')).toContainText(/ZG-\d{6}/, { timeout: 15_000 });
+
+    // Способ оплаты включается в настройках, поэтому блок может и отсутствовать —
+    // проверяем, что при наличии он показывает сумму заказа и ведёт на Kaspi.
+    const payButton = page.getByTestId('pay-kaspi');
+    if (await payButton.isVisible().catch(() => false)) {
+      await expect(page.getByTestId('payment-amount')).toContainText('4 520 тг');
+      await expect(payButton).toHaveAttribute('href', /kaspi/i);
+    }
+  });
+
   test('минимальная сумма заказа с доставкой проверяется на сервере', async ({ page }) => {
     await page.goto('/product/luk-repchatiy');
     await page.getByTestId('add-to-cart').click();

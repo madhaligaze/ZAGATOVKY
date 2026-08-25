@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Tabs from '@radix-ui/react-tabs';
-import { Plus, Trash2 } from 'lucide-react';
+import { Info, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, keys, type AdminCategory, type PublicSettings } from '@/lib/api';
-import { Button, Field, Input, Panel, Spinner, Textarea } from '@/components/ui';
+import { Button, Callout, Field, Input, Panel, Spinner, Textarea } from '@/components/ui';
 
 const tabTrigger =
   'rounded-control px-3 py-1.5 text-2xs font-semibold uppercase tracking-[0.06em] text-muted transition-colors data-[state=active]:bg-accent-soft data-[state=active]:text-ink';
@@ -250,6 +250,9 @@ export const SettingsPage = () => {
           <Tabs.Trigger value="delivery" className={tabTrigger}>
             Доставка
           </Tabs.Trigger>
+          <Tabs.Trigger value="payment" className={tabTrigger}>
+            Оплата
+          </Tabs.Trigger>
           <Tabs.Trigger value="brand" className={tabTrigger}>
             Бренд
           </Tabs.Trigger>
@@ -393,6 +396,89 @@ export const SettingsPage = () => {
                 label="Примечание о доставке"
                 value={draft.delivery.note}
                 onChange={(note) => patch('delivery', { ...draft.delivery, note })}
+                multiline
+              />
+            </div>
+          </Panel>
+        </Tabs.Content>
+
+        <Tabs.Content value="payment">
+          <Panel
+            title="Оплата"
+            action={
+              <Button
+                size="sm"
+                variant="primary"
+                onClick={() => save.mutate({ group: 'payment', body: draft.payment })}
+              >
+                Сохранить
+              </Button>
+            }
+          >
+            <div className="flex flex-col gap-4">
+              <Callout icon={<Info size={14} />} title="Как это работает сейчас">
+                Клиент оформляет заказ и на странице «спасибо» видит сумму и кнопку
+                «Оплатить через Kaspi». Kaspi не сообщает сайту об оплате, поэтому
+                отметку «Оплачен» вы ставите сами в карточке заказа. Когда подключим
+                эквайринг с обратным вызовом, отметка станет автоматической, а этот
+                способ выключится одним переключателем.
+              </Callout>
+
+              <label className="flex items-center justify-between gap-3 rounded-control border border-line px-3 py-2.5">
+                <span className="text-sm">
+                  Показывать кнопку оплаты Kaspi
+                  <span className="block text-2xs text-faint">
+                    Выключите — клиент просто перейдёт в чат, как раньше
+                  </span>
+                </span>
+                <input
+                  type="checkbox"
+                  checked={draft.payment.kaspiEnabled}
+                  onChange={(event) =>
+                    patch('payment', { ...draft.payment, kaspiEnabled: event.target.checked })
+                  }
+                  data-testid="kaspi-enabled"
+                />
+              </label>
+
+              <Field
+                label="Ссылка на оплату из Kaspi Pay"
+                hint="Приложение Kaspi Pay → Удалённая оплата → вкладка «Ссылка на оплату»"
+              >
+                <Input
+                  value={draft.payment.kaspiLink}
+                  onChange={(event) =>
+                    patch('payment', { ...draft.payment, kaspiLink: event.target.value })
+                  }
+                  placeholder="https://pay.kaspi.kz/pay/..."
+                  data-testid="kaspi-link"
+                />
+              </Field>
+
+              <label className="flex items-center justify-between gap-3 rounded-control border border-line px-3 py-2.5">
+                <span className="text-sm">
+                  Клиент вводит сумму сам
+                  <span className="block text-2xs text-faint">
+                    Ссылка на точку не знает суммы заказа. Оставьте включённым — тогда
+                    на странице оплаты будет подсказка с суммой и номером заказа
+                  </span>
+                </span>
+                <input
+                  type="checkbox"
+                  checked={draft.payment.kaspiAmountManual}
+                  onChange={(event) =>
+                    patch('payment', {
+                      ...draft.payment,
+                      kaspiAmountManual: event.target.checked,
+                    })
+                  }
+                />
+              </label>
+
+              <LocalizedPair
+                label="Примечание об оплате"
+                value={draft.payment.note}
+                onChange={(note) => patch('payment', { ...draft.payment, note })}
                 multiline
               />
             </div>

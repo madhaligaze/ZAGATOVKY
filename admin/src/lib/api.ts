@@ -232,6 +232,8 @@ export const api = {
     request<{ items: AdminOrder[]; total: number }>(`/admin/orders${qs(params)}`),
   setOrderStatus: (id: string, body: { status: OrderStatus; note?: string }) =>
     request<AdminOrder>(`/admin/orders/${id}/status`, { method: 'PATCH', body }),
+  setOrderPaid: (id: string, isPaid: boolean) =>
+    request<AdminOrder>(`/admin/orders/${id}/paid`, { method: 'PATCH', body: { isPaid } }),
   clearTestOrders: () =>
     request<{ deleted: number }>('/admin/orders/test', { method: 'DELETE' }),
 

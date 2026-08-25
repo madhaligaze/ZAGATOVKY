@@ -11,11 +11,11 @@ import {
   useSensors,
   type DragEndEvent,
 } from '@dnd-kit/core';
-import { LayoutGrid, MessageCircle, Phone, Rows3, Trash2 } from 'lucide-react';
+import { LayoutGrid, MessageCircle, Phone, Rows3, Trash2, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, keys, type AdminOrder, type OrderStatus } from '@/lib/api';
 import { Button, Chip, EmptyState, Input, Panel, Spinner } from '@/components/ui';
-import { money, relative } from '@/lib/format';
+import { dateTime, money, relative } from '@/lib/format';
 import { cn } from '@/lib/cn';
 
 const columns: { status: OrderStatus; label: string }[] = [
@@ -31,10 +31,12 @@ const OrderCard = ({
   order,
   draggable = true,
   highlighted = false,
+  onTogglePaid,
 }: {
   order: AdminOrder;
   draggable?: boolean;
   highlighted?: boolean;
+  onTogglePaid?: (order: AdminOrder) => void;
 }) => {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: order.id,
@@ -67,6 +69,13 @@ const OrderCard = ({
       </div>
 
       <div className="mt-2 flex flex-wrap gap-1">
+        {order.isPaid ? (
+          <Chip tone="success" title={order.paidAt ? `Оплачен ${dateTime(order.paidAt)}` : undefined}>
+            Оплачен
+          </Chip>
+        ) : (
+          <Chip tone="warning">Не оплачен</Chip>
+        )}
         {order.isTest && <Chip tone="warning">Тест</Chip>}
         {order.customerType === 'BUSINESS' && <Chip tone="accent">Заведение</Chip>}
         <Chip>{order.deliveryType === 'PICKUP' ? 'Самовывоз' : 'Доставка'}</Chip>
@@ -95,6 +104,14 @@ const OrderCard = ({
             <MessageCircle size={13} /> Написать
           </a>
         </Button>
+        <Button
+          size="sm"
+          variant={order.isPaid ? 'subtle' : 'outline'}
+          title={order.isPaid ? 'Снять отметку об оплате' : 'Отметить оплаченным'}
+          onClick={() => onTogglePaid?.(order)}
+        >
+          <Wallet size={13} />
+        </Button>
         <Button asChild size="sm" variant="outline" title={order.phone}>
           <a href={`tel:${order.phone.replace(/\s/g, '')}`}>
             <Phone size={13} />
@@ -109,10 +126,12 @@ const Column = ({
   status,
   label,
   orders,
+  onTogglePaid,
 }: {
   status: OrderStatus;
   label: string;
   orders: AdminOrder[];
+  onTogglePaid: (order: AdminOrder) => void;
 }) => {
   const { setNodeRef, isOver } = useDroppable({ id: status });
   const sum = orders.reduce((total, order) => total + order.total, 0);
@@ -138,7 +157,9 @@ const Column = ({
         {orders.length === 0 ? (
           <p className="py-8 text-center text-2xs text-faint">Пусто</p>
         ) : (
-          orders.map((order) => <OrderCard key={order.id} order={order} />)
+          orders.map((order) => (
+            <OrderCard key={order.id} order={order} onTogglePaid={onTogglePaid} />
+          ))
         )}
       </div>
     </div>
@@ -153,10 +174,11 @@ export const OrdersPage = () => {
   const focusId = params.get('focus');
   const search = params.get('search') ?? '';
   const includeTest = params.get('test') === '1';
+  const paid = params.get('paid') ?? '';
 
   const { data, isPending } = useQuery({
-    queryKey: keys.orders({ search, includeTest }),
-    queryFn: () => api.orders({ search, includeTest, limit: 200 }),
+    queryKey: keys.orders({ search, includeTest, paid }),
+    queryFn: () => api.orders({ search, includeTest, paid: paid || undefined, limit: 200 }),
     refetchInterval: 30_000,
   });
 
@@ -169,6 +191,19 @@ export const OrdersPage = () => {
     },
     onError: (error: Error) => toast.error(error.message),
   });
+
+  // Kaspi не сообщает сайту об оплате по ссылке, поэтому отметку ставит человек.
+  // Тот же эндпоинт потом будет дёргать callback эквайринга — см. PAYMENTS.md.
+  const setPaid = useMutation({
+    mutationFn: ({ id, isPaid }: { id: string; isPaid: boolean }) => api.setOrderPaid(id, isPaid),
+    onSuccess: (order) => {
+      void queryClient.invalidateQueries({ queryKey: ['orders'] });
+      toast.success(order.isPaid ? 'Заказ отмечен оплаченным' : 'Отметка об оплате снята');
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const togglePaid = (order: AdminOrder) => setPaid.mutate({ id: order.id, isPaid: !order.isPaid });
 
   const clearTest = useMutation({
     mutationFn: api.clearTestOrders,
@@ -215,6 +250,15 @@ export const OrdersPage = () => {
             placeholder="Имя, телефон или номер"
             className="w-52"
           />
+
+          <Button
+            size="sm"
+            variant={paid === 'no' ? 'primary' : 'outline'}
+            onClick={() => setParam('paid', paid === 'no' ? '' : 'no')}
+            title="Показать только неоплаченные"
+          >
+            Не оплачены
+          </Button>
 
           <Button
             size="sm"
@@ -270,6 +314,7 @@ export const OrdersPage = () => {
                 status={column.status}
                 label={column.label}
                 orders={orders.filter((order) => order.status === column.status)}
+                onTogglePaid={togglePaid}
               />
             ))}
           </div>
@@ -282,6 +327,7 @@ export const OrdersPage = () => {
               order={order}
               draggable={false}
               highlighted={order.id === focusId}
+              onTogglePaid={togglePaid}
             />
           ))}
         </div>
