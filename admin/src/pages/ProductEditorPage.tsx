@@ -2,11 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Tabs from '@radix-ui/react-tabs';
-import { ArrowLeft, Minus, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Info, Minus, Package, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, keys, ApiError, type ProductBody } from '@/lib/api';
 import { MediaPicker, type PickedImage } from '@/components/MediaPicker';
-import { Button, Chip, Field, Input, Panel, Select, Spinner, Textarea } from '@/components/ui';
+import { Button, Callout, Chip, Field, Input, Panel, Select, Spinner, Textarea } from '@/components/ui';
 import { money, weight as formatWeight } from '@/lib/format';
 import { cn } from '@/lib/cn';
 
@@ -107,6 +107,8 @@ export const ProductEditorPage = () => {
         url: image.url,
         altRu: image.alt.ru,
         altKk: image.alt.kk,
+        width: image.width,
+        height: image.height,
       })),
       badgeCodes: product.badges.map((badge) => badge.code),
       bundleItems: product.bundleItems.map((item) => ({
@@ -245,6 +247,14 @@ export const ProductEditorPage = () => {
         </Button>
       </div>
 
+      {isNew && (
+        <Callout icon={<Info size={14} />} tone="accent" title="Что заполнить обязательно">
+          Название на двух языках, цена и вес — без них товар не сохранится. Всё
+          остальное можно добавить позже: товар до публикации держите выключенным
+          переключателем «Показывать на витрине» справа.
+        </Callout>
+      )}
+
       <div className="grid gap-4 xl:grid-cols-[1.6fr_1fr]">
         <div className="flex flex-col gap-4">
           <Panel title="Тексты">
@@ -259,20 +269,30 @@ export const ProductEditorPage = () => {
               </Tabs.List>
 
               <Tabs.Content value="ru" className="flex flex-col gap-4">
-                <Field label="Название" error={errors.nameRu}>
+                <Field
+                  label="Название"
+                  error={errors.nameRu}
+                  hint="Как товар называется в каталоге и в заказе"
+                >
                   <Input
                     value={draft.nameRu}
                     onChange={(event) => set('nameRu', event.target.value)}
                     data-testid="name-ru"
                   />
                 </Field>
-                <Field label="Короткое описание" hint="Показывается в карточке каталога">
+                <Field
+                  label="Короткое описание"
+                  hint="Одна строка под названием в каталоге. Например: «Очищена и нарезана соломкой»"
+                >
                   <Input
                     value={draft.shortRu}
                     onChange={(event) => set('shortRu', event.target.value)}
                   />
                 </Field>
-                <Field label="Полное описание">
+                <Field
+                  label="Полное описание"
+                  hint="Виден только на странице товара. Расскажите, как нарезано и для чего подходит"
+                >
                   <Textarea
                     rows={5}
                     value={draft.descriptionRu}
@@ -282,7 +302,11 @@ export const ProductEditorPage = () => {
               </Tabs.Content>
 
               <Tabs.Content value="kk" className="flex flex-col gap-4">
-                <Field label="Атауы" error={errors.nameKk}>
+                <Field
+                  label="Атауы"
+                  error={errors.nameKk}
+                  hint="Обязательно: без перевода казахская версия витрины покажет пустое место"
+                >
                   <Input
                     value={draft.nameKk}
                     onChange={(event) => set('nameKk', event.target.value)}
@@ -313,6 +337,13 @@ export const ProductEditorPage = () => {
           {draft.type === 'BUNDLE' && (
             <Panel title="Состав набора">
               <div className="flex flex-col gap-3">
+                <Callout icon={<Package size={14} />} title="Как устроен набор">
+                  Набор — это отдельный товар со своей ценой и своим фото. Позиции ниже
+                  нужны, чтобы показать покупателю состав и выгоду. Склад по ним
+                  не списывается, цена набора не складывается автоматически — вы задаёте
+                  её сами в поле «Цена».
+                </Callout>
+
                 {draft.bundleItems.length === 0 && (
                   <p className="text-2xs text-danger">{errors.bundle ?? 'Набор пока пуст'}</p>
                 )}
@@ -440,7 +471,7 @@ export const ProductEditorPage = () => {
         <div className="flex flex-col gap-4">
           <Panel title="Цена и наличие">
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Цена, тг" error={errors.price}>
+              <Field label="Цена, тг" error={errors.price} hint="Целые тенге, без копеек">
                 <Input
                   inputMode="numeric"
                   value={draft.price || ''}
@@ -451,7 +482,7 @@ export const ProductEditorPage = () => {
                 />
               </Field>
 
-              <Field label="Старая цена" hint="Для зачёркнутой цены">
+              <Field label="Старая цена" hint="Зачёркнута рядом. Пусто — скидки нет">
                 <Input
                   inputMode="numeric"
                   value={draft.compareAtPrice ?? ''}
@@ -462,7 +493,7 @@ export const ProductEditorPage = () => {
                 />
               </Field>
 
-              <Field label="Вес / объём">
+              <Field label="Вес / объём" hint="Число: 250, 400, 1">
                 <Input
                   inputMode="numeric"
                   value={draft.weightValue || ''}
@@ -476,7 +507,7 @@ export const ProductEditorPage = () => {
                 />
               </Field>
 
-              <Field label="Единица">
+              <Field label="Единица" hint="Показывается рядом с ценой">
                 <Select
                   value={draft.weightUnit}
                   onChange={(event) => set('weightUnit', event.target.value as Draft['weightUnit'])}
@@ -488,7 +519,11 @@ export const ProductEditorPage = () => {
                 </Select>
               </Field>
 
-              <Field label="Наличие" className="col-span-2">
+              <Field
+                label="Наличие"
+                className="col-span-2"
+                hint="«Нет в наличии» оставляет товар на витрине, но кнопку «В корзину» отключает"
+              >
                 <Select
                   value={draft.stockStatus}
                   onChange={(event) =>
@@ -505,7 +540,7 @@ export const ProductEditorPage = () => {
 
           <Panel title="Размещение">
             <div className="flex flex-col gap-3">
-              <Field label="Категория">
+              <Field label="Категория" hint="Определяет, под каким фильтром товар найдут в каталоге">
                 <Select
                   value={draft.categoryId}
                   onChange={(event) => set('categoryId', event.target.value)}
@@ -519,7 +554,10 @@ export const ProductEditorPage = () => {
                 </Select>
               </Field>
 
-              <Field label="Адрес страницы" hint="Оставьте пустым — создадим из названия">
+              <Field
+                label="Адрес страницы"
+                hint="Часть ссылки: /product/svekla. Оставьте пустым — создадим из названия"
+              >
                 <Input
                   value={draft.slug}
                   onChange={(event) => set('slug', event.target.value)}
@@ -529,6 +567,10 @@ export const ProductEditorPage = () => {
 
               <div className="flex flex-col gap-2">
                 <span className="label-caps">Бейджи</span>
+                <p className="-mt-1 text-2xs text-faint">
+                  Метки на фото в каталоге. Работают, когда их мало: два бейджа
+                  на карточку — предел, больше витрина не покажет.
+                </p>
                 <div className="flex flex-wrap gap-1.5">
                   {badges?.map((badge) => {
                     const active = draft.badgeCodes.includes(badge.code);

@@ -11,14 +11,35 @@ import {
 } from '@dnd-kit/core';
 import { SortableContext, arrayMove, rectSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { AlertTriangle, GripVertical, ImagePlus, Upload, X } from 'lucide-react';
+import { AlertTriangle, Crop, GripVertical, ImagePlus, Upload, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, keys, type MediaAsset } from '@/lib/api';
-import { Button, EmptyState, Spinner } from '@/components/ui';
+import { Button, Callout, EmptyState, Spinner } from '@/components/ui';
 import { bytes } from '@/lib/format';
 import { cn } from '@/lib/cn';
 
-export type PickedImage = { assetId: string; url: string; altRu?: string | null; altKk?: string | null };
+export type PickedImage = {
+  assetId: string;
+  url: string;
+  altRu?: string | null;
+  altKk?: string | null;
+  width?: number;
+  height?: number;
+};
+
+/** Витрина показывает фото в вертикальной рамке 4:5 и обрезает всё лишнее. */
+const TARGET_RATIO = 4 / 5;
+/** Ниже этого разрешения снимок будет мылить на больших экранах. */
+const MIN_WIDTH = 800;
+
+const ratioOf = (image: PickedImage) =>
+  image.width && image.height ? image.width / image.height : null;
+
+/** Насколько кадр далёк от 4:5 — в процентах, чтобы решить, предупреждать ли. */
+const ratioDrift = (image: PickedImage) => {
+  const ratio = ratioOf(image);
+  return ratio === null ? null : Math.abs(ratio - TARGET_RATIO) / TARGET_RATIO;
+};
 
 /** Одна миниатюра в списке фото товара: перетаскивается за ручку, снимается крестиком. */
 const SortableThumb = ({
@@ -34,6 +55,9 @@ const SortableThumb = ({
     id: image.assetId,
   });
 
+  const drift = ratioDrift(image);
+  const tooSmall = Boolean(image.width && image.width < MIN_WIDTH);
+
   return (
     <div
       ref={setNodeRef}
@@ -45,9 +69,31 @@ const SortableThumb = ({
     >
       <img src={image.url} alt="" className="aspect-[4/5] w-full object-cover" />
 
-      {index === 0 && (
-        <span className="absolute left-1 top-1 rounded bg-accent px-1.5 py-0.5 text-2xs font-semibold text-accent-ink">
-          Обложка
+      <span
+        className={cn(
+          'absolute left-1 top-1 rounded px-1.5 py-0.5 text-2xs font-semibold',
+          index === 0 ? 'bg-accent text-accent-ink' : 'bg-black/55 text-white',
+        )}
+      >
+        {index === 0 ? 'Обложка' : `Фото ${index + 1}`}
+      </span>
+
+      {/* Предупреждаем прямо на кадре: витрина обрежет то, что не влезло в 4:5 */}
+      {drift !== null && drift > 0.12 && (
+        <span
+          className="absolute right-1 top-1 grid h-5 w-5 place-items-center rounded bg-warning text-white"
+          title={`Пропорции ${image.width}×${image.height} не 4:5 — на витрине кадр обрежется сверху и снизу`}
+        >
+          <Crop size={12} />
+        </span>
+      )}
+
+      {tooSmall && (
+        <span
+          className="absolute right-1 bottom-8 grid h-5 w-5 place-items-center rounded bg-danger text-white"
+          title={`Ширина ${image.width}px — мало, на большом экране фото будет мылить`}
+        >
+          <AlertTriangle size={12} />
         </span>
       )}
 
@@ -111,7 +157,12 @@ export const MediaPicker = ({ value, onChange, max = 8 }: Props) => {
     onSuccess: (assets) => {
       onChange([
         ...value,
-        ...assets.map((asset) => ({ assetId: asset.id, url: asset.url })),
+        ...assets.map((asset) => ({
+          assetId: asset.id,
+          url: asset.url,
+          width: asset.width,
+          height: asset.height,
+        })),
       ].slice(0, max));
       void queryClient.invalidateQueries({ queryKey: ['media'] });
       toast.success(assets.length === 1 ? 'Фото загружено' : `Загружено фото: ${assets.length}`);
@@ -142,6 +193,27 @@ export const MediaPicker = ({ value, onChange, max = 8 }: Props) => {
 
   const storageDisabled = storageProbe?.storageEnabled === false;
 
+  // Разбираем добавленные кадры и пишем понятным языком, что с ними не так
+  const problems = (() => {
+    const cropped = value.filter((image) => (ratioDrift(image) ?? 0) > 0.12);
+    const small = value.filter((image) => image.width && image.width < MIN_WIDTH);
+    const lines: string[] = [];
+
+    if (cropped.length) {
+      lines.push(
+        cropped.length === 1
+          ? 'Одно фото не в пропорциях 4:5 — на витрине его обрежет сверху и снизу. Проверьте, не уйдёт ли за край главное.'
+          : `${cropped.length} фото не в пропорциях 4:5 — на витрине их обрежет сверху и снизу.`,
+      );
+    }
+    if (small.length) {
+      lines.push(
+        `${small.length === 1 ? 'Одно фото' : `${small.length} фото`} уже 800px по ширине — на большом экране будет мылить.`,
+      );
+    }
+    return lines;
+  })();
+
   return (
     <div className="flex flex-col gap-3">
       {storageDisabled && (
@@ -151,6 +223,29 @@ export const MediaPicker = ({ value, onChange, max = 8 }: Props) => {
           загрузить нельзя — витрина покажет буквенные заглушки.
         </p>
       )}
+
+      {/* Требования к кадру — прямо здесь, а не в документации,
+          которую всё равно никто не откроет в момент загрузки. */}
+      <Callout
+        icon={<Crop size={14} />}
+        title="Какие фото нужны"
+        tone={value.length === 0 ? 'accent' : 'info'}
+      >
+        <ul className="flex flex-col gap-0.5">
+          <li>
+            <b>Вертикальные, 4:5</b> — например 1200×1500. Витрина показывает кадр именно
+            в такой рамке, всё лишнее обрезает сверху и снизу.
+          </li>
+          <li>
+            <b>Не меньше 800px по ширине</b>, иначе на большом экране будет мылить.
+          </li>
+          <li>JPEG, PNG, HEIC или WebP до 15 МБ. Сжатие и формат мы берём на себя.</li>
+          <li>
+            Первое фото — <b>обложка</b>: его видно в каталоге и в корзине. Остальные
+            открываются в галерее на странице товара. Порядок меняется перетаскиванием.
+          </li>
+        </ul>
+      </Callout>
 
       {value.length > 0 && (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
@@ -167,6 +262,15 @@ export const MediaPicker = ({ value, onChange, max = 8 }: Props) => {
             </div>
           </SortableContext>
         </DndContext>
+      )}
+
+      {/* Сводка проблем по уже добавленным кадрам */}
+      {problems.length > 0 && (
+        <Callout tone="warning" icon={<AlertTriangle size={14} />}>
+          {problems.map((line) => (
+            <p key={line}>{line}</p>
+          ))}
+        </Callout>
       )}
 
       <div
@@ -187,7 +291,7 @@ export const MediaPicker = ({ value, onChange, max = 8 }: Props) => {
       >
         <ImagePlus size={20} className="text-faint" />
         <p className="text-2xs text-muted">
-          Перетащите фото сюда или выберите файлы. Мы сожмём их и подготовим для витрины.
+          Перетащите фото сюда или выберите файлы
         </p>
 
         <div className="flex gap-2">
@@ -245,7 +349,17 @@ export const MediaPicker = ({ value, onChange, max = 8 }: Props) => {
                         type="button"
                         disabled={picked}
                         onClick={() => {
-                          onChange([...value, { assetId: asset.id, url: asset.url }].slice(0, max));
+                          onChange(
+                            [
+                              ...value,
+                              {
+                                assetId: asset.id,
+                                url: asset.url,
+                                width: asset.width,
+                                height: asset.height,
+                              },
+                            ].slice(0, max),
+                          );
                           setLibraryOpen(false);
                         }}
                         className={cn(

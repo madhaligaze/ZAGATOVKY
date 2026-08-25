@@ -157,13 +157,13 @@ export const UsersPage = () => {
 
       <Panel title="Добавить пользователя">
         <div className="flex flex-wrap items-end gap-3">
-          <Field label="Имя" className="min-w-40 flex-1">
+          <Field label="Имя" className="min-w-40 flex-1" hint="Видно в журнале действий">
             <Input
               value={form.name}
               onChange={(event) => setForm({ ...form, name: event.target.value })}
             />
           </Field>
-          <Field label="Почта" className="min-w-48 flex-1">
+          <Field label="Почта" className="min-w-48 flex-1" hint="Ею человек входит в кабинет">
             <Input
               type="email"
               value={form.email}
@@ -177,7 +177,7 @@ export const UsersPage = () => {
               onChange={(event) => setForm({ ...form, password: event.target.value })}
             />
           </Field>
-          <Field label="Роль" className="w-40">
+          <Field label="Роль" className="w-40" hint="Что можно менять">
             <Select
               value={form.role}
               onChange={(event) => setForm({ ...form, role: event.target.value })}
@@ -189,13 +189,21 @@ export const UsersPage = () => {
               ))}
             </Select>
           </Field>
-          <Button
-            variant="primary"
-            disabled={!form.email || !form.name || form.password.length < 8 || create.isPending}
-            onClick={() => create.mutate()}
-          >
-            <Plus size={15} /> Добавить
-          </Button>
+          {/* Кнопка повторяет структуру Field (метка → контрол → строка подсказки),
+              иначе в строке с выравниванием по низу она встаёт ниже полей. */}
+          <div className="flex flex-col gap-1.5">
+            <span className="label-caps invisible" aria-hidden>
+              .
+            </span>
+            <Button
+              variant="primary"
+              disabled={!form.email || !form.name || form.password.length < 8 || create.isPending}
+              onClick={() => create.mutate()}
+            >
+              <Plus size={15} /> Добавить
+            </Button>
+            <span className="min-h-4 leading-4" aria-hidden />
+          </div>
         </div>
 
         <p className="mt-3 text-2xs text-faint">{roleHints[form.role]}</p>

@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Bookmark, Check, Columns3, Plus, Search, X } from 'lucide-react';
+import { Bookmark, Check, Columns3, ImageOff, Plus, Search, X } from 'lucide-react';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { toast } from 'sonner';
 import { api, keys, type AdminProduct } from '@/lib/api';
 import { useWorkspace, type SavedView } from '@/store/workspace';
-import { Button, Chip, EmptyState, Input, Select, Spinner } from '@/components/ui';
+import { Button, Callout, Chip, EmptyState, Input, Select, Spinner } from '@/components/ui';
 import { money, weight } from '@/lib/format';
 import { cn } from '@/lib/cn';
 
@@ -141,6 +141,7 @@ export const ProductsPage = () => {
 
   const items = data?.items ?? [];
   const allSelected = items.length > 0 && selected.length === items.length;
+  const withoutPhoto = items.filter((item) => !item.image).length;
 
   return (
     <div className="flex flex-col gap-4">
@@ -163,6 +164,24 @@ export const ProductsPage = () => {
           </Button>
         </div>
       </div>
+
+      {/* Витрина без фото выглядит как набор букв — говорим об этом прямо
+          и даём одним кликом отфильтровать такие позиции. */}
+      {withoutPhoto > 0 && filters.status !== 'nophoto' && (
+        <Callout tone="warning" icon={<ImageOff size={14} />}>
+          <span>
+            У {withoutPhoto} из {items.length} позиций нет фото — в каталоге вместо снимка
+            показывается первая буква названия.{' '}
+          </span>
+          <button
+            type="button"
+            onClick={() => setFilter('status', 'nophoto')}
+            className="font-semibold underline underline-offset-2"
+          >
+            Показать только их
+          </button>
+        </Callout>
+      )}
 
       {/* Панель фильтров + сохранённые представления */}
       <div className="panel flex flex-wrap items-center gap-2 p-3">
@@ -209,6 +228,7 @@ export const ProductsPage = () => {
           <option value="active">На витрине</option>
           <option value="hidden">Скрытые</option>
           <option value="out">Нет в наличии</option>
+          <option value="nophoto">Без фото</option>
         </Select>
 
         {/* Выбор колонок */}

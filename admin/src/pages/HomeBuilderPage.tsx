@@ -15,11 +15,24 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Eye, EyeOff, GripVertical, Plus, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, Eye, EyeOff, GripVertical, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, keys, type HomeSectionRow } from '@/lib/api';
 import { Button, Field, Input, Panel, Select, Spinner, Textarea } from '@/components/ui';
 import { cn } from '@/lib/cn';
+
+/** Что каждая секция делает на витрине — чтобы не пришлось угадывать по названию. */
+const kindDescriptions: Record<string, string> = {
+  HERO: 'Первый экран: крупный заголовок, подзаголовок и две кнопки. Показывается один раз, самым верхом.',
+  CATEGORIES: 'Плитка категорий каталога. Наполняется автоматически — настраиваются только заголовки.',
+  BUNDLES: 'Все готовые наборы из каталога. Наполняется автоматически.',
+  COLLECTION: 'Выбранная подборка товаров, например «Хиты». Состав задаётся в разделе «Товары».',
+  EDITORIAL: 'Текстовый блок на всю ширину: крупный заголовок слева, абзац справа. Для истории бренда.',
+  BANNER: 'Полоса-баннер под акцию или объявление.',
+  STEPS: 'Пронумерованные шаги «Как это работает» на тёмном фоне.',
+  FAQ: 'Раскрывающиеся вопросы и ответы.',
+  CONTACTS: 'Заголовок над подвалом с контактами. Сами контакты берутся из «Настроек».',
+};
 
 const kindLabels: Record<string, string> = {
   HERO: 'Первый экран',
@@ -71,6 +84,116 @@ const LocalizedField = ({
           rows={multiline ? 3 : undefined}
         />
       </Field>
+    </div>
+  );
+};
+
+
+/**
+ * Повторяемый список двуязычных блоков — шаги «Как это работает» и вопросы FAQ.
+ * Раньше это правилось прямо в JSON: одна лишняя запятая ломала секцию,
+ * а увидеть структуру можно было только по фигурным скобкам.
+ */
+const RepeatableList = ({
+  label,
+  addLabel,
+  hint,
+  items,
+  fields,
+  onChange,
+}: {
+  label: string;
+  addLabel: string;
+  hint?: string;
+  items: Record<string, unknown>[];
+  fields: { key: string; label: string; multiline?: boolean }[];
+  onChange: (items: Record<string, unknown>[]) => void;
+}) => {
+  const patch = (index: number, key: string, next: L) =>
+    onChange(items.map((item, i) => (i === index ? { ...item, [key]: next } : item)));
+
+  const move = (index: number, delta: number) => {
+    const target = index + delta;
+    if (target < 0 || target >= items.length) return;
+    const next = [...items];
+    [next[index], next[target]] = [next[target]!, next[index]!];
+    onChange(next);
+  };
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div>
+        <span className="label-caps">{label}</span>
+        {hint && <p className="mt-0.5 text-2xs text-faint">{hint}</p>}
+      </div>
+
+      {items.length === 0 && (
+        <p className="rounded-control border border-dashed border-line-strong px-3 py-4 text-center text-2xs text-faint">
+          Пока пусто — секция не появится на витрине
+        </p>
+      )}
+
+      {items.map((item, index) => (
+        <div key={index} className="rounded-control border border-line p-3">
+          <div className="mb-2 flex items-center gap-2">
+            <span className="grid h-5 w-5 place-items-center rounded bg-accent-soft text-2xs font-semibold text-ink">
+              {index + 1}
+            </span>
+            <span className="text-2xs text-faint">{label.slice(0, -1).toLowerCase()}</span>
+
+            <div className="ml-auto flex items-center gap-0.5">
+              <Button
+                size="iconSm"
+                variant="ghost"
+                aria-label="Выше"
+                disabled={index === 0}
+                onClick={() => move(index, -1)}
+              >
+                <ChevronUp size={14} />
+              </Button>
+              <Button
+                size="iconSm"
+                variant="ghost"
+                aria-label="Ниже"
+                disabled={index === items.length - 1}
+                onClick={() => move(index, 1)}
+              >
+                <ChevronDown size={14} />
+              </Button>
+              <Button
+                size="iconSm"
+                variant="ghost"
+                aria-label="Удалить"
+                className="hover:text-danger"
+                onClick={() => onChange(items.filter((_, i) => i !== index))}
+              >
+                <Trash2 size={14} />
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            {fields.map((field) => (
+              <LocalizedField
+                key={field.key}
+                label={field.label}
+                multiline={field.multiline}
+                value={asL(item[field.key])}
+                onChange={(next) => patch(index, field.key, next)}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
+
+      <Button
+        size="sm"
+        variant="outline"
+        className="self-start"
+        onClick={() => onChange([...items, {}])}
+      >
+        <Plus size={14} /> {addLabel}
+      </Button>
     </div>
   );
 };
@@ -171,34 +294,31 @@ const SectionEditor = ({
       )}
 
       {section.kind === 'STEPS' && (
-        <p className="text-2xs text-faint">
-          Шаги задаются списком в данных секции. Чтобы изменить их, отредактируйте текст шага ниже.
-        </p>
+        <RepeatableList
+          label="Шаги"
+          addLabel="Добавить шаг"
+          hint="Нумерация проставляется сама. Обычно хватает четырёх шагов."
+          items={(payload.steps ?? []) as Record<string, unknown>[]}
+          onChange={(items) => set('steps', items)}
+          fields={[
+            { key: 'title', label: 'Заголовок шага' },
+            { key: 'text', label: 'Пояснение', multiline: true },
+          ]}
+        />
       )}
 
-      {(section.kind === 'STEPS' || section.kind === 'FAQ') && (
-        <Field
-          label="Данные секции"
-          hint="Список шагов или вопросов в формате JSON — правьте аккуратно"
-        >
-          <Textarea
-            rows={8}
-            defaultValue={JSON.stringify(
-              section.kind === 'STEPS' ? (payload.steps ?? []) : (payload.items ?? []),
-              null,
-              2,
-            )}
-            onBlur={(event) => {
-              try {
-                const parsed = JSON.parse(event.target.value) as unknown;
-                set(section.kind === 'STEPS' ? 'steps' : 'items', parsed);
-              } catch {
-                toast.error('Не удалось разобрать JSON — проверьте скобки и запятые');
-              }
-            }}
-            className="font-mono text-2xs"
-          />
-        </Field>
+      {section.kind === 'FAQ' && (
+        <RepeatableList
+          label="Вопросы"
+          addLabel="Добавить вопрос"
+          hint="Отвечайте на то, что реально спрашивают в переписке: сроки хранения, доставка, оплата."
+          items={(payload.items ?? []) as Record<string, unknown>[]}
+          onChange={(items) => set('items', items)}
+          fields={[
+            { key: 'q', label: 'Вопрос' },
+            { key: 'a', label: 'Ответ', multiline: true },
+          ]}
+        />
       )}
     </div>
   );
@@ -240,10 +360,12 @@ const SortableSection = ({
           <GripVertical size={16} />
         </button>
 
-        <button type="button" onClick={() => setOpen((value) => !value)} className="flex-1 text-left">
+        <button type="button" onClick={() => setOpen((value) => !value)} className="min-w-0 flex-1 text-left">
           <span className="text-sm font-semibold">{kindLabels[section.kind] ?? section.kind}</span>
-          <span className="ml-2 text-2xs text-faint">
-            {open ? 'свернуть' : 'настроить'}
+          <span className="ml-2 text-2xs text-faint">{open ? 'свернуть' : 'настроить'}</span>
+          {!section.isVisible && <span className="ml-2 text-2xs text-warning">скрыта</span>}
+          <span className="block truncate text-2xs text-faint">
+            {kindDescriptions[section.kind] ?? ''}
           </span>
         </button>
 

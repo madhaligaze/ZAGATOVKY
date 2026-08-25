@@ -43,19 +43,22 @@ Button.displayName = 'Button';
 
 /* ─── Поля ────────────────────────────────────────────────────────────────── */
 
+// Единая высота у input и select: у нативного select своя внутренняя метрика,
+// и без явной высоты соседние поля в строке различаются на пиксель.
 const fieldClass =
-  'w-full rounded-control border border-line bg-surface px-3 py-2 text-sm text-ink outline-none transition-colors placeholder:text-faint focus:border-accent disabled:opacity-50';
+  'w-full rounded-control border border-line bg-surface px-3 text-sm text-ink outline-none transition-colors placeholder:text-faint focus:border-accent disabled:opacity-50';
+const controlHeight = 'h-9 py-0';
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(
   ({ className, ...props }, ref) => (
-    <input ref={ref} className={cn(fieldClass, className)} {...props} />
+    <input ref={ref} className={cn(fieldClass, controlHeight, className)} {...props} />
   ),
 );
 Input.displayName = 'Input';
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(
   ({ className, ...props }, ref) => (
-    <textarea ref={ref} className={cn(fieldClass, 'resize-y', className)} {...props} />
+    <textarea ref={ref} className={cn(fieldClass, 'resize-y py-2', className)} {...props} />
   ),
 );
 Textarea.displayName = 'Textarea';
@@ -64,7 +67,7 @@ export const Select = forwardRef<
   HTMLSelectElement,
   InputHTMLAttributes<HTMLSelectElement> & { children: ReactNode }
 >(({ className, children, ...props }, ref) => (
-  <select ref={ref} className={cn(fieldClass, 'cursor-pointer', className)} {...props}>
+  <select ref={ref} className={cn(fieldClass, controlHeight, 'cursor-pointer', className)} {...props}>
     {children}
   </select>
 ));
@@ -76,21 +79,39 @@ export const Field = ({
   error,
   children,
   className,
+  /** Отключает резерв места под подсказку — для форм, где поля идут в столбик */
+  compact,
 }: {
   label: string;
-  hint?: string;
+  hint?: ReactNode;
   error?: string;
   children: ReactNode;
   className?: string;
+  compact?: boolean;
 }) => (
   <label className={cn('flex flex-col gap-1.5', className)}>
     <span className="label-caps">{label}</span>
     {children}
-    {error ? (
-      <span className="text-2xs text-danger">{error}</span>
-    ) : hint ? (
-      <span className="text-2xs text-faint">{hint}</span>
-    ) : null}
+
+    {/*
+      Строка подсказки существует всегда, даже пустая. Иначе поле с подсказкой
+      выше соседних, и в строке с выравниванием по низу оно уезжает вверх —
+      форма выглядит съехавшей.
+    */}
+    {!compact && (
+      <span
+        className={cn('min-h-4 text-2xs leading-4', error ? 'text-danger' : 'text-faint')}
+        aria-live={error ? 'polite' : undefined}
+      >
+        {error ?? hint ?? ''}
+      </span>
+    )}
+
+    {compact && (error || hint) && (
+      <span className={cn('text-2xs leading-4', error ? 'text-danger' : 'text-faint')}>
+        {error ?? hint}
+      </span>
+    )}
   </label>
 );
 
@@ -148,6 +169,45 @@ export const Chip = ({
   >
     {children}
   </span>
+);
+
+const calloutTones = {
+  info: 'border-line bg-raised text-muted',
+  accent: 'border-accent/40 bg-accent-soft text-ink',
+  warning: 'border-warning/40 bg-warning/10 text-warning',
+  danger: 'border-danger/40 bg-danger/10 text-danger',
+};
+
+/**
+ * Пояснение рядом с полем или блоком: что это влияет на витрине и как заполнять.
+ * Задача — чтобы владелец не гадал, а видел ответ прямо на месте.
+ */
+export const Callout = ({
+  tone = 'info',
+  icon,
+  title,
+  children,
+  className,
+}: {
+  tone?: keyof typeof calloutTones;
+  icon?: ReactNode;
+  title?: string;
+  children?: ReactNode;
+  className?: string;
+}) => (
+  <div
+    className={cn(
+      'flex items-start gap-2 rounded-control border px-3 py-2.5 text-2xs leading-relaxed',
+      calloutTones[tone],
+      className,
+    )}
+  >
+    {icon && <span className="mt-0.5 shrink-0">{icon}</span>}
+    <div className="min-w-0">
+      {title && <p className="mb-0.5 font-semibold">{title}</p>}
+      {children}
+    </div>
+  </div>
 );
 
 export const EmptyState = ({
