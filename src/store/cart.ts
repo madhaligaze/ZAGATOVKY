@@ -72,6 +72,32 @@ export const useCart = create<CartState>()(
   ),
 );
 
+/*
+ * Вкладки жили каждая со своей копией корзины: persist пишет в localStorage,
+ * но обратно не слушает. Открыв две вкладки и добавив товар в одной, во второй
+ * человек видел старый счётчик — а оформление из неё отправило бы неполный
+ * состав, потому что берётся состояние в памяти, а не то, что в хранилище.
+ * Событие storage приходит только в другие вкладки, так что эха не будет.
+ */
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (event) => {
+    if (event.key !== 'zagatovky:cart') return;
+    // Значение стёрли (очистка данных сайта) — приводим вкладку к пустой корзине.
+    if (!event.newValue) {
+      useCart.setState({ items: [] });
+      return;
+    }
+    try {
+      const parsed = JSON.parse(event.newValue) as { state?: { items?: CartItem[] } };
+      if (Array.isArray(parsed.state?.items)) {
+        useCart.setState({ items: parsed.state.items });
+      }
+    } catch {
+      // Чужая или битая запись — оставляем вкладку как есть
+    }
+  });
+}
+
 export const selectCount = (state: CartState) =>
   state.items.reduce((sum, item) => sum + item.qty, 0);
 
