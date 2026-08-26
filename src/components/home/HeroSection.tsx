@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowDown } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
@@ -22,6 +22,7 @@ type Props = {
 };
 
 export const HeroSection = ({ section, highlight }: Props) => {
+  const [heroImageBroken, setHeroImageBroken] = useState(false);
   const { locale } = useLocale();
   const payload = section.payload as HeroPayload;
   const rootRef = useRef<HTMLElement>(null);
@@ -136,10 +137,15 @@ export const HeroSection = ({ section, highlight }: Props) => {
           data-hero-panel
           className="relative aspect-[4/5] w-full max-w-md justify-self-center bg-parchment text-mountain lg:justify-self-end"
         >
-          {highlight?.image ? (
+          {/* Мёртвая ссылка на фото (файл удалён из хранилища, запись в базе
+              осталась) оставляла на первом экране пустой прямоугольник.
+              Типографская карточка ниже и есть штатная замена — откатываемся
+              к ней, если картинка не загрузилась. */}
+          {highlight?.image && !heroImageBroken ? (
             <img
               src={highlight.image.url}
               alt={highlight.name[locale]}
+              onError={() => setHeroImageBroken(true)}
               className="h-full w-full object-cover"
             />
           ) : (

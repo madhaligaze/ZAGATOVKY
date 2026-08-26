@@ -1,4 +1,4 @@
-import { forwardRef } from 'react';
+import { forwardRef, useEffect, useState } from 'react';
 import { cn } from '@/lib/cn';
 import type { Localized, LocalizedNullable } from '@/types/catalog';
 
@@ -29,7 +29,16 @@ type Props = {
  */
 export const ProductMedia = forwardRef<HTMLDivElement, Props>(
   ({ image, name, className, imageClassName, size = 'card' }, ref) => {
-    if (image) {
+    /*
+     * Ссылка на фото может быть живой в базе и мёртвой в хранилище: так уже
+     * случилось — товар ссылался на файл, которого в R2 нет, и вместо снимка
+     * оставался пустой прямоугольник. Заглушка ниже нарисована именно на этот
+     * случай, поэтому при ошибке загрузки честно откатываемся к ней.
+     */
+    const [broken, setBroken] = useState(false);
+    useEffect(() => setBroken(false), [image?.url]);
+
+    if (image && !broken) {
       return (
         <div ref={ref} className={cn('overflow-hidden bg-parchment', className)}>
           <img
@@ -39,6 +48,7 @@ export const ProductMedia = forwardRef<HTMLDivElement, Props>(
             height={image.height}
             loading="lazy"
             decoding="async"
+            onError={() => setBroken(true)}
             style={
               image.lqip
                 ? { backgroundImage: `url(${image.lqip})`, backgroundSize: 'cover' }
