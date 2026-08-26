@@ -4,6 +4,7 @@ import { Minus, Plus } from 'lucide-react';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { ProductMedia } from './ProductMedia';
+import { RevealFrame } from '@/components/fx/RevealFrame';
 import { useTilt } from '@/hooks/useTilt';
 import { useLocale } from '@/hooks/useLocale';
 import { useCart, selectQtyOf } from '@/store/cart';
@@ -51,13 +52,18 @@ export const ProductCard = ({ product, className }: Props) => {
           className="block focus-visible:outline-offset-[-3px]"
           aria-label={name}
         >
-          <ProductMedia
-            ref={mediaRef}
-            image={product.image}
-            name={name}
-            className="aspect-[4/5] w-full"
-            imageClassName="group-hover:scale-[1.06]"
-          />
+          {/* Кадр раскрывается при появлении в окне, содержимое внутри едет
+              медленнее страницы. Приёму всё равно, фотография внутри или
+              типографская заглушка — работает и до появления снимков. */}
+          <RevealFrame className="aspect-[4/5] w-full" parallax={6}>
+            <ProductMedia
+              ref={mediaRef}
+              image={product.image}
+              name={name}
+              className="h-full w-full"
+              imageClassName="group-hover:scale-[1.06]"
+            />
+          </RevealFrame>
         </Link>
 
         {product.badges.length > 0 && (

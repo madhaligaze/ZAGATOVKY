@@ -1,10 +1,13 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowDown } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { KineticBand } from '@/components/fx/KineticBand';
+import { supportsDesktopFx, supportsWebGL } from '@/lib/fx';
 import { gsap, prefersReducedMotion, ScrollTrigger } from '@/lib/motion';
 import { useLocale } from '@/hooks/useLocale';
 import { formatPrice, formatWeight } from '@/lib/format';
+import { cn } from '@/lib/cn';
 import type { HomeSection, Locale, ProductCard } from '@/types/catalog';
 
 type HeroPayload = {
@@ -21,6 +24,12 @@ type Props = {
   highlight?: ProductCard;
 };
 
+/**
+ * Жидкое искажение надписи — отдельным чанком: на телефон и на машины без WebGL
+ * оно не скачивается вовсе, там остаётся обычная кинетическая лента.
+ */
+const HeroFlowmap = lazy(() => import('@/components/fx/HeroFlowmap'));
+
 export const HeroSection = ({ section, highlight }: Props) => {
   const [heroImageBroken, setHeroImageBroken] = useState(false);
   const { locale } = useLocale();
@@ -29,6 +38,22 @@ export const HeroSection = ({ section, highlight }: Props) => {
 
   const title = payload.title?.[locale] ?? '';
   const lines = title.split('\n');
+
+  // Слово ленты — не заголовок: заголовок читают, ленту видят. Берём короткое,
+  // чтобы повтор укладывался в экран целиком и шов не бросался в глаза.
+  const bandWord = locale === 'kk' ? 'ДАЙЫНДАМА' : 'ЗАГОТОВКИ';
+
+  /**
+   * Искажение включаем только там, где оно уместно и вытянет по кадрам, и только
+   * после того, как канвас реально отрисовал первый кадр: иначе на месте ленты
+   * на мгновение оказывается пустота.
+   */
+  const [flowmap, setFlowmap] = useState(false);
+  const [flowmapReady, setFlowmapReady] = useState(false);
+
+  useEffect(() => {
+    setFlowmap(supportsDesktopFx() && supportsWebGL());
+  }, []);
 
   // useLayoutEffect, а не useEffect: начальное состояние анимации выставляется
   // до первой отрисовки. В разметке элементы видимы — если скрипт задержится
@@ -89,7 +114,37 @@ export const HeroSection = ({ section, highlight }: Props) => {
 
   return (
     <section ref={rootRef} className="relative overflow-hidden bg-mountain text-parchment">
-      <div className="container-page grid items-center gap-12 py-20 md:py-28 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16 lg:py-32">
+      {/* Несущая типографика первого экрана. Лежит позади контента и живёт
+          независимо от того, есть ли у нас хоть одна фотография. */}
+      <div
+        className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 select-none"
+        data-testid="hero-band"
+      >
+        <KineticBand
+          word={bandWord}
+          outline
+          repeat={3}
+          distance={-380}
+          className={cn(
+            'text-[clamp(5rem,17vw,15rem)] text-parchment/[0.13] transition-opacity duration-700',
+            // Когда канвас готов — DOM-лента уходит, чтобы надпись не двоилась
+            flowmapReady && 'opacity-0',
+          )}
+        />
+
+        {flowmap && (
+          <Suspense fallback={null}>
+            <HeroFlowmap
+              word={bandWord}
+              color="rgba(235,231,225,0.16)"
+              onReady={() => setFlowmapReady(true)}
+              className="absolute inset-0 h-full w-full"
+            />
+          </Suspense>
+        )}
+      </div>
+
+      <div className="container-page relative grid items-center gap-12 py-20 md:py-28 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16 lg:py-32">
         <div>
           {payload.eyebrow?.[locale] && (
             <p data-hero-fade className="eyebrow gold-rule text-parchment/70">

@@ -287,3 +287,107 @@ test.describe('Витрина', () => {
     await expect(page.getByTestId('feedback-done')).toHaveCount(0);
   });
 });
+
+test.describe('Оформление и движение', () => {
+  test('@smoke кинетическая лента и зерно есть на первом экране', async ({ page }) => {
+    await page.goto('/');
+
+    await expect(page.getByTestId('grain')).toBeAttached();
+    await expect(page.getByTestId('hero-band')).toBeAttached();
+
+    // Лента декоративная: её текста быть не должно в доступном дереве,
+    // иначе скринридер прочитает слово трижды подряд
+    await expect(page.getByTestId('kinetic-band')).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  test('@smoke заголовок разбит на буквы, но читается целиком', async ({ page }) => {
+    await page.goto('/');
+
+    const heading = page.locator('h2:has(.split-char)').first();
+    await expect(heading).toBeVisible();
+
+    // Буквы скрыты от скринридера, а исходная строка отдана через aria-label —
+    // иначе заголовок произносился бы по одному символу
+    const label = await heading.getAttribute('aria-label');
+    expect(label && label.length > 3).toBeTruthy();
+    await expect(heading.locator('.split-word').first()).toHaveAttribute('aria-hidden', 'true');
+  });
+
+  test('@smoke карточки раскрываются по мере прокрутки', async ({ page }) => {
+    await page.goto('/catalog');
+    await expect(page.getByTestId('product-grid')).toBeVisible();
+
+    const masks = () =>
+      page.evaluate(() =>
+        Array.from(document.querySelectorAll('[data-testid="reveal-frame"]')).map((el) => ({
+          belowFold: el.getBoundingClientRect().top > window.innerHeight,
+          clip: getComputedStyle(el).clipPath,
+        })),
+      );
+
+    // Ниже сгиба кадры ещё закрыты маской — иначе раскрывать было бы нечего
+    const before = await masks();
+    expect(before.length).toBeGreaterThan(0);
+    expect(before.some((m) => m.belowFold && m.clip !== 'inset(0%)')).toBeTruthy();
+
+    await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+    await page.waitForTimeout(2500);
+
+    // После прокрутки не осталось ни одного нераскрытого кадра
+    const after = await masks();
+    expect(after.every((m) => m.clip === 'inset(0%)')).toBeTruthy();
+  });
+});
+
+test.describe('Тяжёлые эффекты знают своё место', () => {
+  test('на телефоне курсор и WebGL не грузятся вовсе', async ({ page, isMobile }) => {
+    test.skip(!isMobile, 'Проверяем именно мобильное поведение');
+
+    const heavy: string[] = [];
+    page.on('request', (request) => {
+      if (/DesktopLayer|CustomCursor|HeroFlowmap/.test(request.url())) heavy.push(request.url());
+    });
+
+    await page.goto('/');
+    await page.waitForTimeout(1500);
+
+    // Зерно — чистый CSS, оно уместно везде
+    await expect(page.getByTestId('grain')).toBeAttached();
+
+    // А вот курсор и искажение на телефоне бессмысленны: их код не должен
+    // даже скачиваться, иначе мобильный трафик платит за то, чего не увидит
+    await expect(page.getByTestId('cursor')).toHaveCount(0);
+    await expect(page.getByTestId('hero-flowmap')).toHaveCount(0);
+    expect(heavy).toEqual([]);
+  });
+
+  test('при «меньше движения» контент виден сразу и без инерции', async ({ browser }) => {
+    const context = await browser.newContext({
+      reducedMotion: 'reduce',
+      viewport: { width: 1440, height: 900 },
+    });
+    const page = await context.newPage();
+
+    await page.goto('/catalog');
+    await page.waitForTimeout(1200);
+
+    // Ни один кадр не остаётся скрытым маской: анимации нет, есть конечное состояние
+    const clips = await page.evaluate(() =>
+      Array.from(document.querySelectorAll('[data-testid="reveal-frame"]')).map(
+        (el) => getComputedStyle(el).clipPath,
+      ),
+    );
+    expect(clips.length).toBeGreaterThan(0);
+    expect(clips.every((c) => c === 'inset(0%)' || c === 'none')).toBeTruthy();
+
+    // Прокрутка обычная: инерции быть не должно
+    await page.mouse.wheel(0, 400);
+    await page.waitForTimeout(60);
+    const early = await page.evaluate(() => Math.round(window.scrollY));
+    await page.waitForTimeout(800);
+    const settled = await page.evaluate(() => Math.round(window.scrollY));
+    expect(Math.abs(settled - early)).toBeLessThan(30);
+
+    await context.close();
+  });
+});
