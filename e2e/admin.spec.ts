@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures';
-import type { Page } from '@playwright/test';
+import type { APIRequestContext, Page } from '@playwright/test';
 
 /**
  * Прогоны против дев-стека: тесты создают и меняют данные.
@@ -226,6 +226,175 @@ test.describe('Админ-кабинет', () => {
       await expect(page.getByTestId('metric-cost')).toContainText('—');
     } else {
       await expect(profit).toContainText('тг');
+    }
+  });
+});
+
+/**
+ * Регрессии второго прохода аудита. Работают через API кабинета: проверяется
+ * не вёрстка, а правила, которых раньше не было и из-за которых данные можно
+ * было испортить одним запросом (или одним промахом мыши по канбану).
+ */
+test.describe('Аудит: защита данных кабинета', () => {
+  const API = process.env.E2E_API_URL ?? 'http://localhost:3000/api/v1';
+
+  /** Возвращает заголовок с токеном владельца. */
+  const asOwner = async (request: APIRequestContext) => {
+    const res = await request.post(`${API}/admin/auth/login`, {
+      data: { email: EMAIL, password: PASSWORD },
+    });
+    expect(res.status()).toBe(200);
+    return { Authorization: `Bearer ${(await res.json()).accessToken}` };
+  };
+
+  /** Свежий заказ — чтобы тесты не зависели от того, что уже лежит в базе. */
+  const makeOrder = async (request: APIRequestContext) => {
+    const products = await (await request.get(`${API}/catalog/products?limit=1`)).json();
+    const res = await request.post(`${API}/orders`, {
+      data: {
+        customerName: `TEST-fsm-${Date.now()}`,
+        phone: '+77001112233',
+        deliveryType: 'PICKUP',
+        isTest: true,
+        items: [{ productId: products.items[0].id, qty: 1 }],
+      },
+    });
+    expect(res.status()).toBe(201);
+    return (await res.json()).id as string;
+  };
+
+  /** AUDIT #23 (P1): раньше разрешался любой переход, включая DONE → NEW. */
+  test('завершённый заказ нельзя вернуть в работу', async ({ request }) => {
+    const headers = await asOwner(request);
+    const id = await makeOrder(request);
+    const setStatus = (status: string) =>
+      request.patch(`${API}/admin/orders/${id}/status`, { headers, data: { status } });
+
+    // Движение по цепочке и поправки назад — нормальная работа
+    expect((await setStatus('CONFIRMED')).status()).toBe(200);
+    expect((await setStatus('COOKING')).status()).toBe(200);
+    expect((await setStatus('CONFIRMED')).status()).toBe(200);
+    // Тот же статус повторно — не ошибка, канбан присылает это при возврате карточки
+    expect((await setStatus('CONFIRMED')).status()).toBe(200);
+    expect((await setStatus('DELIVERING')).status()).toBe(200);
+    expect((await setStatus('DONE')).status()).toBe(200);
+
+    // А вот воскрешение закрытого заказа — уже нет
+    for (const status of ['NEW', 'COOKING', 'CONFIRMED']) {
+      const res = await setStatus(status);
+      expect(res.status(), `DONE → ${status} должен отклоняться`).toBe(409);
+      expect((await res.json()).message).toContain('завершённый');
+    }
+
+    // Единственная лазейка — отменить случайное закрытие
+    expect((await setStatus('DELIVERING')).status()).toBe(200);
+  });
+
+  /** AUDIT #23: то же для отменённого заказа. */
+  test('отменённый заказ нельзя оживить произвольным статусом', async ({ request }) => {
+    const headers = await asOwner(request);
+    const id = await makeOrder(request);
+    const setStatus = (status: string) =>
+      request.patch(`${API}/admin/orders/${id}/status`, { headers, data: { status } });
+
+    expect((await setStatus('CONFIRMED')).status()).toBe(200);
+    expect((await setStatus('CANCELLED')).status()).toBe(200);
+
+    const revived = await setStatus('NEW');
+    expect(revived.status()).toBe(409);
+    expect((await revived.json()).message).toContain('отменённый');
+
+    expect((await setStatus('CONFIRMED')).status()).toBe(200);
+  });
+
+  /** AUDIT #17 (P2): мусорный заказ раньше нельзя было убрать совсем. */
+  test('удалить заказ можно только из архива', async ({ request }) => {
+    const headers = await asOwner(request);
+    const id = await makeOrder(request);
+
+    const early = await request.delete(`${API}/admin/orders/${id}`, { headers });
+    expect(early.status(), 'живой заказ не должен удаляться').toBe(409);
+    expect((await early.json()).message).toContain('архив');
+
+    await request.patch(`${API}/admin/orders/${id}/archive`, { headers, data: { archived: true } });
+
+    const removed = await request.delete(`${API}/admin/orders/${id}`, { headers });
+    expect(removed.status()).toBe(200);
+    expect((await removed.json()).deleted).toBe(1);
+
+    expect((await request.delete(`${API}/admin/orders/${id}`, { headers })).status()).toBe(404);
+  });
+
+  /** AUDIT #24-#27 (P2): цена 0, вес 0 и «скидка наоборот» сохранялись молча. */
+  test('карточка товара не принимает бессмысленные цену и вес', async ({ request }) => {
+    const headers = await asOwner(request);
+    const list = await (await request.get(`${API}/admin/products?limit=50`, { headers })).json();
+    const target = list.items[0];
+    const full = await (
+      await request.get(`${API}/admin/products/${target.id}`, { headers })
+    ).json();
+
+    const body = (over: Record<string, unknown> = {}) => ({
+      slug: full.slug,
+      type: full.type,
+      nameRu: full.name.ru,
+      nameKk: full.name.kk,
+      shortRu: full.short?.ru ?? null,
+      shortKk: full.short?.kk ?? null,
+      descriptionRu: full.description?.ru ?? null,
+      descriptionKk: full.description?.kk ?? null,
+      price: full.price,
+      compareAtPrice: full.compareAtPrice ?? null,
+      costPrice: full.costPrice ?? null,
+      weightValue: full.weight.value,
+      weightUnit: full.weight.unit,
+      categoryId: full.category?.id ?? null,
+      stockStatus: full.stockStatus,
+      stockQty: full.stockQty ?? null,
+      isActive: full.isActive,
+      isFeatured: full.isFeatured,
+      sortOrder: full.sortOrder ?? 0,
+      seoTitleRu: null,
+      seoTitleKk: null,
+      seoDescRu: null,
+      seoDescKk: null,
+      images: (full.images ?? []).map((i: { id: string }) => ({
+        assetId: i.id,
+        altRu: null,
+        altKk: null,
+      })),
+      badgeCodes: (full.badges ?? []).map((b: { code: string }) => b.code),
+      bundleItems: (full.bundleItems ?? []).map(
+        (b: { product?: { id: string }; componentId?: string; qty: number }) => ({
+          componentId: b.product?.id ?? b.componentId,
+          qty: b.qty,
+        }),
+      ),
+      ...over,
+    });
+
+    const put = (over: Record<string, unknown>) =>
+      request.put(`${API}/admin/products/${target.id}`, { headers, data: body(over) });
+
+    try {
+      for (const [label, over] of [
+        ['цена 0 — товар уехал бы бесплатно', { price: 0 }],
+        ['цена с лишними нулями', { price: 999_999_999 }],
+        ['вес 0 — карточка написала бы «0 г»', { weightValue: 0 }],
+        ['старая цена ниже текущей — скидка наоборот', { compareAtPrice: 1 }],
+        ['старая цена равна текущей', { compareAtPrice: full.price }],
+      ] as const) {
+        const res = await put(over);
+        expect(res.status(), label).toBe(400);
+        // Отказ должен быть понятен человеку, а не «Проверьте заполненные поля»
+        expect((await res.json()).message).not.toBe('Проверьте заполненные поля');
+      }
+
+      // Осмысленная старая цена по-прежнему принимается
+      expect((await put({ compareAtPrice: full.price + 100 })).status()).toBe(200);
+    } finally {
+      // Возвращаем карточку в исходный вид, чем бы ни кончился тест
+      await put({});
     }
   });
 });
