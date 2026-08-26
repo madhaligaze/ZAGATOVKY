@@ -168,6 +168,40 @@
   }
 }
 
+
+/* Подтверждение сохранения: кнопка коротко «клюёт» и наливается зелёным.
+   Без этого нажатие ощущалось как ничего не сделавшее — плашка появлялась
+   внизу экрана, а сама кнопка оставалась неподвижной. */
+@keyframes save-pop {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(0.94);
+  }
+  70% {
+    transform: scale(1.04);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes save-check {
+  0% {
+    transform: scale(0.4) rotate(-25deg);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.15) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

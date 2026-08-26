@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import {
   BarChart3,
   Boxes,
@@ -10,12 +11,14 @@ import {
   Menu,
   PanelLeftClose,
   PanelLeftOpen,
+  MessageSquareQuote,
   Search,
   Settings as SettingsIcon,
   ShoppingBag,
   Users,
   Wallet,
 } from 'lucide-react';
+import { api, keys } from '@/lib/api';
 import { useWorkspace } from '@/store/workspace';
 import { WorkspaceMenu } from './WorkspaceMenu';
 import { CommandPalette } from './CommandPalette';
@@ -27,6 +30,7 @@ export const navigation = [
   { to: '/orders', label: 'Заказы', icon: ShoppingBag },
   { to: '/finance', label: 'Финансы', icon: Wallet },
   { to: '/products', label: 'Товары', icon: Boxes },
+  { to: '/feedback', label: 'Отзывы', icon: MessageSquareQuote },
   { to: '/media', label: 'Медиатека', icon: ImageIcon },
   { to: '/home', label: 'Главная', icon: LayoutTemplate },
   { to: '/settings', label: 'Настройки', icon: SettingsIcon },
@@ -40,6 +44,19 @@ export const AppShell = () => {
   const logout = useWorkspace((state) => state.logout);
   const collapsed = useWorkspace((state) => state.workspace.sidebarCollapsed);
   const patch = useWorkspace((state) => state.patchWorkspace);
+
+  /**
+   * Счётчик непрочитанных сообщений с витрины. Отдельная дешёвая ручка вместо
+   * общей статистики: она опрашивается с любой страницы кабинета, и держать
+   * ради одного числа весь набор запросов дашборда незачем.
+   */
+  const { data: feedback } = useQuery({
+    queryKey: keys.feedbackUnread,
+    queryFn: api.feedbackUnread,
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
+  });
+  const unread = feedback?.unread ?? 0;
 
   const [paletteOpen, setPaletteOpen] = useState(false);
   // На телефоне меню выезжает поверх контента: постоянная колонка в 240px
@@ -93,26 +110,54 @@ export const AppShell = () => {
         </div>
 
         <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-2">
-          {navigation.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={'end' in item ? item.end : false}
-              title={collapsed ? item.label : undefined}
-              className={({ isActive }) =>
-                cn(
-                  'flex items-center gap-3 rounded-control px-3 py-2 text-sm transition-colors',
-                  collapsed && 'justify-center px-0',
-                  isActive
-                    ? 'bg-accent-soft font-semibold text-ink'
-                    : 'text-muted hover:bg-raised hover:text-ink',
-                )
-              }
-            >
-              <item.icon size={17} strokeWidth={1.6} className="shrink-0" />
-              {!collapsed && item.label}
-            </NavLink>
-          ))}
+          {navigation.map((item) => {
+            const badge = item.to === '/feedback' ? unread : 0;
+
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={'end' in item ? item.end : false}
+                title={
+                  collapsed
+                    ? badge > 0
+                      ? `${item.label}: ${badge} непрочитанных`
+                      : item.label
+                    : undefined
+                }
+                className={({ isActive }) =>
+                  cn(
+                    'relative flex items-center gap-3 rounded-control px-3 py-2 text-sm transition-colors',
+                    collapsed && 'justify-center px-0',
+                    isActive
+                      ? 'bg-accent-soft font-semibold text-ink'
+                      : 'text-muted hover:bg-raised hover:text-ink',
+                  )
+                }
+              >
+                <item.icon size={17} strokeWidth={1.6} className="shrink-0" />
+                {!collapsed && item.label}
+
+                {/* Счётчик непрочитанных. В свёрнутом меню подписи нет, поэтому
+                    число превращается в точку у иконки — иначе оно не помещается. */}
+                {badge > 0 &&
+                  (collapsed ? (
+                    <span
+                      data-testid="nav-feedback-dot"
+                      aria-label={`${badge} непрочитанных`}
+                      className="absolute right-2.5 top-1.5 h-2 w-2 rounded-full bg-accent"
+                    />
+                  ) : (
+                    <span
+                      data-testid="nav-feedback-badge"
+                      className="ml-auto min-w-5 rounded-control bg-accent px-1.5 py-0.5 text-center text-2xs font-bold tabular-nums text-accent-ink"
+                    >
+                      {badge > 99 ? '99+' : badge}
+                    </span>
+                  ))}
+              </NavLink>
+            );
+          })}
         </nav>
 
         <div className="hidden border-t border-line p-2 lg:block">

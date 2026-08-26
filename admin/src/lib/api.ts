@@ -46,6 +46,10 @@ export type AuditRow = Json<
 export type AdminAccount = Json<paths['/api/v1/admin/users']['get']['responses'][200]>[number];
 export type Badge = Json<paths['/api/v1/admin/badges']['get']['responses'][200]>[number];
 export type Finance = Json<paths['/api/v1/admin/finance']['get']['responses'][200]>;
+export type Feedback = Json<
+  paths['/api/v1/admin/feedback']['get']['responses'][200]
+>['items'][number];
+export type FeedbackKind = Feedback['kind'];
 export type PublicSettings = Json<
   paths['/api/v1/settings/public']['get']['responses'][200]
 >;
@@ -245,6 +249,17 @@ export const api = {
   clearTestOrders: () =>
     request<{ deleted: number }>('/admin/orders/test', { method: 'DELETE' }),
 
+  // Обратная связь
+  feedback: (params: Record<string, unknown> = {}) =>
+    request<{ items: Feedback[]; total: number; unread: number }>(`/admin/feedback${qs(params)}`),
+  feedbackUnread: () => request<{ unread: number }>('/admin/feedback/unread'),
+  setFeedbackRead: (id: string, isRead: boolean) =>
+    request<Feedback>(`/admin/feedback/${id}/read`, { method: 'PATCH', body: { isRead } }),
+  setFeedbackArchived: (id: string, archived: boolean) =>
+    request<Feedback>(`/admin/feedback/${id}/archive`, { method: 'PATCH', body: { archived } }),
+  clearTestFeedback: () =>
+    request<{ deleted: number }>('/admin/feedback/test', { method: 'DELETE' }),
+
   // Система
   stats: () => request<Stats>('/admin/stats'),
   finance: (params: Record<string, unknown> = {}) => request<Finance>(`/admin/finance${qs(params)}`),
@@ -260,6 +275,8 @@ export const api = {
 export const keys = {
   stats: ['stats'] as const,
   finance: (params: Record<string, unknown>) => ['finance', params] as const,
+  feedback: (params: Record<string, unknown>) => ['feedback', params] as const,
+  feedbackUnread: ['feedback-unread'] as const,
   products: (params: Record<string, unknown>) => ['products', params] as const,
   product: (id: string) => ['product', id] as const,
   categories: ['categories'] as const,

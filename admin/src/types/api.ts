@@ -72,7 +72,7 @@ export interface paths {
                     category?: string;
                     search?: string;
                     type?: "SIMPLE" | "BUNDLE";
-                    featured?: boolean;
+                    featured?: boolean | string;
                     sort?: "default" | "price_asc" | "price_desc" | "name" | "new";
                     limit?: number;
                     offset?: number;
@@ -737,6 +737,65 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Сообщение с витрины: пожелание, отзыв или вопрос */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /**
+                         * @default WISH
+                         * @enum {string}
+                         */
+                        kind?: "WISH" | "REVIEW" | "QUESTION";
+                        name: string;
+                        contact?: string;
+                        message: string;
+                        /**
+                         * @default ru
+                         * @enum {string}
+                         */
+                        locale?: "ru" | "kk";
+                        website?: string;
+                        /** @default false */
+                        isTest?: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            ok: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/auth/login": {
         parameters: {
             query?: never;
@@ -1072,7 +1131,7 @@ export interface paths {
         delete: {
             parameters: {
                 query?: {
-                    force?: boolean;
+                    force?: boolean | string;
                 };
                 header?: never;
                 path: {
@@ -2728,7 +2787,7 @@ export interface paths {
                 query?: {
                     status?: "NEW" | "CONFIRMED" | "COOKING" | "DELIVERING" | "DONE" | "CANCELLED";
                     search?: string;
-                    includeTest?: boolean;
+                    includeTest?: boolean | string;
                     paid?: "yes" | "no";
                     archived?: "no" | "only" | "all";
                     limit?: number;
@@ -3078,6 +3137,51 @@ export interface paths {
         };
         trace?: never;
     };
+    "/api/v1/admin/orders/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Безвозвратное удаление заказа (только владелец, только из архива)
+         * @description Сначала заказ нужно отправить в архив. Удаление снимает его вместе с позициями и историей статусов — отменить это нельзя.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @enum {number} */
+                            deleted: 1;
+                            number: string;
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/orders/test": {
         parameters: {
             query?: never;
@@ -3396,7 +3500,7 @@ export interface paths {
                 query?: {
                     from?: string;
                     to?: string;
-                    paidOnly?: boolean;
+                    paidOnly?: boolean | string;
                 };
                 header?: never;
                 path?: never;
@@ -3472,6 +3576,260 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Сообщения с витрины */
+        get: {
+            parameters: {
+                query?: {
+                    kind?: "WISH" | "REVIEW" | "QUESTION";
+                    read?: "yes" | "no";
+                    search?: string;
+                    includeTest?: boolean | string;
+                    archived?: "no" | "only" | "all";
+                    limit?: number;
+                    offset?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: {
+                                id: string;
+                                /** @enum {string} */
+                                kind: "WISH" | "REVIEW" | "QUESTION";
+                                name: string;
+                                contact: string | null;
+                                message: string;
+                                locale: string;
+                                isRead: boolean;
+                                readAt: string | null;
+                                isTest: boolean;
+                                archivedAt: string | null;
+                                createdAt: string;
+                                replyUrl: string | null;
+                            }[];
+                            total: number;
+                            unread: number;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/feedback/unread": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Сколько непрочитанных сообщений */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            unread: number;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/feedback/{id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Отметка «прочитано» */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        isRead: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            /** @enum {string} */
+                            kind: "WISH" | "REVIEW" | "QUESTION";
+                            name: string;
+                            contact: string | null;
+                            message: string;
+                            locale: string;
+                            isRead: boolean;
+                            readAt: string | null;
+                            isTest: boolean;
+                            archivedAt: string | null;
+                            createdAt: string;
+                            replyUrl: string | null;
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/admin/feedback/{id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Архивация сообщения (мягкая альтернатива удалению) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        archived: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            /** @enum {string} */
+                            kind: "WISH" | "REVIEW" | "QUESTION";
+                            name: string;
+                            contact: string | null;
+                            message: string;
+                            locale: string;
+                            isRead: boolean;
+                            readAt: string | null;
+                            isTest: boolean;
+                            archivedAt: string | null;
+                            createdAt: string;
+                            replyUrl: string | null;
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/admin/feedback/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Очистка сообщений, созданных прогонами Playwright */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            deleted: number;
+                        };
+                    };
+                };
+            };
+        };
         options?: never;
         head?: never;
         patch?: never;

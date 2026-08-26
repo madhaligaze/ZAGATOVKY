@@ -33,6 +33,10 @@ export type CreateOrderInput = NonNullable<
 
 export type CreatedOrder = Json<paths['/api/v1/orders']['post']['responses'][201]>;
 
+export type FeedbackInput = NonNullable<
+  paths['/api/v1/feedback']['post']['requestBody']
+>['content']['application/json'];
+
 export type ProductQuery = NonNullable<
   paths['/api/v1/catalog/products']['get']['parameters']['query']
 >;

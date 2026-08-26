@@ -18,7 +18,16 @@ import { CSS } from '@dnd-kit/utilities';
 import { ChevronDown, ChevronUp, Eye, EyeOff, GripVertical, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, keys, type HomeSectionRow } from '@/lib/api';
-import { Button, Field, Input, Panel, Select, Spinner, Textarea } from '@/components/ui';
+import {
+  Button,
+  Field,
+  Input,
+  Panel,
+  SaveButton,
+  Select,
+  Spinner,
+  Textarea,
+} from '@/components/ui';
 import { cn } from '@/lib/cn';
 
 /** Что каждая секция делает на витрине — чтобы не пришлось угадывать по названию. */
@@ -329,11 +338,16 @@ const SortableSection = ({
   collections,
   onSave,
   onDelete,
+  isSaving,
+  isSaved,
 }: {
   section: HomeSectionRow;
   collections: { slug: string; titleRu: string }[];
   onSave: (payload: Payload, isVisible: boolean) => void;
   onDelete: () => void;
+  /** Состояние общей мутации, но только для этой секции */
+  isSaving: boolean;
+  isSaved: boolean;
 }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: section.id,
@@ -408,14 +422,14 @@ const SortableSection = ({
             >
               Отменить
             </Button>
-            <Button
-              size="sm"
-              variant="primary"
-              disabled={!dirty}
+            <SaveButton
+              isPending={isSaving}
+              isSuccess={isSaved}
+              dirty={dirty}
+              label="Сохранить секцию"
+              cleanLabel="Секция сохранена"
               onClick={() => onSave(payload, section.isVisible)}
-            >
-              Сохранить секцию
-            </Button>
+            />
           </div>
         </div>
       )}
@@ -527,6 +541,8 @@ export const HomeBuilderPage = () => {
                 key={section.id}
                 section={section}
                 collections={collections ?? []}
+                isSaving={save.isPending && save.variables?.id === section.id}
+                isSaved={save.isSuccess && save.variables?.id === section.id}
                 onSave={(payload, isVisible) =>
                   save.mutate({ id: section.id, payload, isVisible, sortOrder: section.sortOrder })
                 }

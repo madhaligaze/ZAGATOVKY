@@ -398,3 +398,90 @@ test.describe('Аудит: защита данных кабинета', () => {
     }
   });
 });
+
+test.describe('Отзывы в кабинете', () => {
+  test('сообщение с витрины видно в кабинете, счётчик гаснет после прочтения', async ({ page }) => {
+    const marker = `Playwright ${Date.now()}`;
+
+    await page.goto('/');
+    await page.getByTestId('feedback-open').scrollIntoViewIfNeeded();
+    await page.getByTestId('feedback-open').click();
+    await page.getByTestId('feedback-kind-QUESTION').click();
+    await page.getByTestId('feedback-name').fill(marker);
+    await page.getByTestId('feedback-contact').fill('+7 707 000 11 22');
+    await page.getByTestId('feedback-message').fill('Доставляете ли в Талгар?');
+    await page.getByTestId('feedback-submit').click();
+    await expect(page.getByTestId('feedback-done')).toBeVisible({ timeout: 15_000 });
+
+    // Тестовые сообщения по умолчанию скрыты — включаем их фильтром
+    await openAdmin(page, '/feedback?test=1');
+
+    const card = page.locator('article[data-testid^="feedback-"]').filter({ hasText: marker });
+    await expect(card).toBeVisible({ timeout: 15_000 });
+    await expect(card).toContainText('Новое');
+    await expect(card).toContainText('Вопрос');
+
+    const id = (await card.getAttribute('data-testid'))!.replace('feedback-', '');
+
+    // Отметка «прочитано» переключается в обе стороны
+    await page.getByTestId(`feedback-read-${id}`).click();
+    await expect(card).not.toContainText('Новое', { timeout: 15_000 });
+    await page.getByTestId(`feedback-read-${id}`).click();
+    await expect(card).toContainText('Новое', { timeout: 15_000 });
+
+    // Архив убирает сообщение из работы, но не удаляет
+    await page.getByTestId(`feedback-archive-${id}`).click();
+    await expect(card).toHaveCount(0, { timeout: 15_000 });
+
+    await page.goto(`${ADMIN}/feedback?test=1&archived=1`);
+    await expect(card).toBeVisible({ timeout: 15_000 });
+    await expect(card).toContainText('В архиве');
+
+    await page.getByTestId(`feedback-archive-${id}`).click();
+    await expect(card).toHaveCount(0, { timeout: 15_000 });
+
+    await page.goto(`${ADMIN}/feedback?test=1`);
+    await expect(card).toBeVisible({ timeout: 15_000 });
+  });
+});
+
+test.describe('Кнопка сохранения', () => {
+  test('показывает, что правок нет, что идёт сохранение и что всё сохранилось', async ({
+    page,
+  }) => {
+    await openAdmin(page, '/settings');
+
+    const save = page.getByTestId('save-contacts');
+    const phone = page.getByTestId('settings-whatsapp');
+    const original = await phone.inputValue();
+
+    try {
+      // Пока правок нет, нажимать не на что
+      await expect(save).toBeDisabled();
+      await expect(save).toHaveAttribute('data-state', 'clean');
+
+      // Значение обязано отличаться от сохранённого, иначе кнопка честно
+      // останется в состоянии «нечего сохранять» и тест проверит не то
+      const changed = original === '77011234567' ? '77019998877' : '77011234567';
+      await phone.fill(changed);
+      await expect(save).toBeEnabled();
+      await expect(save).toHaveAttribute('data-state', 'dirty');
+
+      await save.click();
+
+      // Подтверждение видно на самой кнопке, а не только всплывающей плашкой
+      await expect(save).toHaveAttribute('data-state', 'saved', { timeout: 15_000 });
+      await expect(save).toContainText('Сохранено');
+
+      // И само уходит: постоянная зелёная кнопка перестала бы что-либо значить
+      await expect(save).toHaveAttribute('data-state', 'clean', { timeout: 15_000 });
+    } finally {
+      // Возвращаем номер, чем бы ни кончился тест
+      await phone.fill(original);
+      if (await save.isEnabled()) {
+        await save.click();
+        await expect(save).toHaveAttribute('data-state', 'clean', { timeout: 15_000 });
+      }
+    }
+  });
+});

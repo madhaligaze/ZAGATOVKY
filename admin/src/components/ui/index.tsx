@@ -1,6 +1,15 @@
 import { Slot } from '@radix-ui/react-slot';
 import { cva, type VariantProps } from 'class-variance-authority';
-import { forwardRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from 'react';
+import {
+  forwardRef,
+  useEffect,
+  useState,
+  type ButtonHTMLAttributes,
+  type InputHTMLAttributes,
+  type ReactNode,
+  type TextareaHTMLAttributes,
+} from 'react';
+import { Check } from 'lucide-react';
 import { cn } from '@/lib/cn';
 
 /* ─── Кнопка ──────────────────────────────────────────────────────────────── */
@@ -226,6 +235,87 @@ export const EmptyState = ({
     {action}
   </div>
 );
+
+/**
+ * Кнопка сохранения, которая показывает, что происходит.
+ *
+ * Обычная кнопка + всплывающая плашка внизу экрана читались плохо: нажатие
+ * не давало никакого отклика в том месте, куда человек смотрит. Здесь состояние
+ * видно прямо на кнопке — «нечего сохранять», «сохраняем», «сохранено», —
+ * и переход в последнее сопровождается коротким движением.
+ *
+ * Состояние «сохранено» держится пару секунд и само уходит: постоянная зелёная
+ * кнопка перестала бы что-либо значить.
+ */
+export const SaveButton = ({
+  isPending,
+  isSuccess,
+  dirty = true,
+  label = 'Сохранить',
+  savedLabel = 'Сохранено',
+  cleanLabel = 'Всё сохранено',
+  onClick,
+  size = 'sm',
+  className,
+  ...rest
+}: {
+  isPending: boolean;
+  isSuccess: boolean;
+  /** Есть ли что сохранять. Пока правок нет, кнопка не зовёт нажимать. */
+  dirty?: boolean;
+  label?: string;
+  savedLabel?: string;
+  cleanLabel?: string;
+  onClick: () => void;
+  size?: ButtonProps['size'];
+  className?: string;
+} & Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'onClick' | 'className'>) => {
+  const [justSaved, setJustSaved] = useState(false);
+
+  useEffect(() => {
+    if (!isSuccess) return;
+    setJustSaved(true);
+    const timer = window.setTimeout(() => setJustSaved(false), 2200);
+    return () => window.clearTimeout(timer);
+  }, [isSuccess]);
+
+  const state = isPending ? 'pending' : justSaved ? 'saved' : dirty ? 'dirty' : 'clean';
+
+  return (
+    <Button
+      {...rest}
+      size={size}
+      variant={state === 'dirty' ? 'primary' : 'outline'}
+      disabled={state !== 'dirty'}
+      aria-live="polite"
+      data-state={state}
+      onClick={onClick}
+      className={cn(
+        'min-w-32 transition-colors',
+        state === 'saved' &&
+          'border-success/50 bg-success/10 text-success opacity-100 [animation:save-pop_420ms_cubic-bezier(0.34,1.56,0.64,1)]',
+        state === 'clean' && 'opacity-60',
+        className,
+      )}
+    >
+      {state === 'pending' && (
+        <span
+          aria-hidden
+          className="h-3.5 w-3.5 animate-spin rounded-full border border-current border-t-transparent"
+        />
+      )}
+      {state === 'saved' && (
+        <Check
+          size={14}
+          strokeWidth={2.5}
+          className="[animation:save-check_360ms_cubic-bezier(0.34,1.56,0.64,1)]"
+        />
+      )}
+
+      {state === 'pending' ? 'Сохраняем…' : state === 'saved' ? savedLabel : state === 'clean' ? cleanLabel : label}
+    </Button>
+  );
+};
 
 export const Spinner = ({ label = 'Загружаем…' }: { label?: string }) => (
   <div className="flex items-center justify-center gap-2 py-12 text-2xs uppercase tracking-[0.08em] text-muted">

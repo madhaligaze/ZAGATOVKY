@@ -232,4 +232,58 @@ test.describe('Витрина', () => {
     await page.waitForTimeout(600);
     expect(await page.evaluate(() => window.scrollY)).toBeLessThan(50);
   });
+
+  test('@smoke приглашение написать нам стоит перед «Частыми вопросами»', async ({ page }) => {
+    await page.goto('/');
+
+    const block = page.getByTestId('feedback-section');
+    await expect(block).toBeVisible();
+    await expect(block.getByRole('heading', { level: 2 })).toContainText(/больше продуктов|көргіңіз/i);
+
+    // Порядок важен: если человек дочитал до вопросов и своего не нашёл,
+    // задать его должно быть можно тут же, а не искать контакты в подвале
+    const order = await page.evaluate(() => {
+      // Array.from, а не spread: NodeList в целевой библиотеке TS не итерируемый
+      const sections = Array.from(document.querySelectorAll('section'));
+      const feedback = sections.findIndex((el) => el.dataset.testid === 'feedback-section');
+      const faq = sections.findIndex((el) => /Частые вопросы|Жиі қойылатын/i.test(el.textContent ?? ''));
+      return { feedback, faq };
+    });
+    expect(order.feedback).toBeGreaterThanOrEqual(0);
+    if (order.faq >= 0) expect(order.feedback).toBeLessThan(order.faq);
+  });
+
+  test('@smoke пустое сообщение не отправляется', async ({ page }) => {
+    await page.goto('/');
+    await page.getByTestId('feedback-open').scrollIntoViewIfNeeded();
+    await page.getByTestId('feedback-open').click();
+
+    await expect(page.getByTestId('feedback-dialog')).toBeVisible();
+    await page.getByTestId('feedback-submit').click();
+
+    // Диалог остаётся открытым, а не закрывается с пустой заявкой
+    await expect(page.getByTestId('feedback-dialog')).toBeVisible();
+    await expect(page.getByTestId('feedback-done')).toHaveCount(0);
+    await expect(page.getByText('Напишите, как к вам обращаться')).toBeVisible();
+  });
+
+  test('сообщение с витрины доходит до благодарности', async ({ page }) => {
+    await page.goto('/');
+    await page.getByTestId('feedback-open').scrollIntoViewIfNeeded();
+    await page.getByTestId('feedback-open').click();
+
+    await page.getByTestId('feedback-kind-WISH').click();
+    await page.getByTestId('feedback-name').fill('Playwright Пожелание');
+    await page.getByTestId('feedback-contact').fill('+7 707 000 11 22');
+    await page.getByTestId('feedback-message').fill('Хотелось бы видеть грибы и шпинат.');
+    await page.getByTestId('feedback-submit').click();
+
+    await expect(page.getByTestId('feedback-done')).toBeVisible({ timeout: 15_000 });
+
+    // Повторное открытие даёт чистую форму, а не прошлый экран «спасибо»
+    await page.getByTestId('feedback-done').getByRole('button', { name: 'Закрыть' }).click();
+    await page.getByTestId('feedback-open').click();
+    await expect(page.getByTestId('feedback-name')).toHaveValue('');
+    await expect(page.getByTestId('feedback-done')).toHaveCount(0);
+  });
 });

@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api, queryKeys } from '@/lib/api';
 import { HeroSection } from '@/components/home/HeroSection';
@@ -9,6 +10,7 @@ import {
   FaqSection,
   StepsSection,
 } from '@/components/home/HomeSections';
+import { FeedbackSection } from '@/components/home/FeedbackSection';
 import { PageState } from '@/components/ui/PageState';
 import type { HomeSection } from '@/types/catalog';
 
@@ -56,5 +58,20 @@ export const HomePage = () => {
     return <PageState isError={isError} onRetry={() => void refetch()} />;
   }
 
-  return <>{data.sections.map((section) => renderSection(section, featured?.items[0]))}</>;
+  // Приглашение написать нам ставим прямо перед «Частыми вопросами»: если человек
+  // дочитал до вопросов и своего там не нашёл, задать его можно тут же.
+  // Блока FAQ на главной может и не быть — тогда приглашение идёт последним.
+  const faqIndex = data.sections.findIndex((section) => section.kind === 'FAQ');
+
+  return (
+    <>
+      {data.sections.map((section, index) => (
+        <Fragment key={section.id}>
+          {index === faqIndex && <FeedbackSection />}
+          {renderSection(section, featured?.items[0])}
+        </Fragment>
+      ))}
+      {faqIndex === -1 && <FeedbackSection />}
+    </>
+  );
 };

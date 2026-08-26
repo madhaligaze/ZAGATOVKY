@@ -6,7 +6,18 @@ import { ArrowLeft, Info, Minus, Package, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, keys, ApiError, type ProductBody } from '@/lib/api';
 import { MediaPicker, type PickedImage } from '@/components/MediaPicker';
-import { Button, Callout, Chip, Field, Input, Panel, Select, Spinner, Textarea } from '@/components/ui';
+import {
+  Button,
+  Callout,
+  Chip,
+  Field,
+  Input,
+  Panel,
+  SaveButton,
+  Select,
+  Spinner,
+  Textarea,
+} from '@/components/ui';
 import { money, weight as formatWeight } from '@/lib/format';
 import { cn } from '@/lib/cn';
 
@@ -241,14 +252,13 @@ export const ProductEditorPage = () => {
           </Button>
         )}
 
-        <Button
-          variant="primary"
+        <SaveButton
+          size="md"
+          isPending={save.isPending}
+          isSuccess={save.isSuccess}
           onClick={submit}
-          disabled={save.isPending}
           data-testid="save-product"
-        >
-          {save.isPending ? 'Сохраняем…' : 'Сохранить'}
-        </Button>
+        />
       </div>
 
       {isNew && (

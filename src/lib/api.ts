@@ -3,6 +3,7 @@ import type {
   Collection,
   CreateOrderInput,
   CreatedOrder,
+  FeedbackInput,
   HomeData,
   ProductDetail,
   ProductList,
@@ -74,6 +75,8 @@ export const api = {
   collection: (slug: string) => request<Collection>(`/catalog/collections/${slug}`),
   createOrder: (input: CreateOrderInput) =>
     request<CreatedOrder>('/orders', { method: 'POST', body: JSON.stringify(input) }),
+  sendFeedback: (input: FeedbackInput) =>
+    request<{ ok: boolean }>('/feedback', { method: 'POST', body: JSON.stringify(input) }),
 };
 
 /** Ключи для TanStack Query — в одном месте, чтобы инвалидация не разъезжалась. */

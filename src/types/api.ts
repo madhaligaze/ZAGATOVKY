@@ -72,7 +72,7 @@ export interface paths {
                     category?: string;
                     search?: string;
                     type?: "SIMPLE" | "BUNDLE";
-                    featured?: boolean;
+                    featured?: boolean | string;
                     sort?: "default" | "price_asc" | "price_desc" | "name" | "new";
                     limit?: number;
                     offset?: number;
@@ -737,6 +737,65 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Сообщение с витрины: пожелание, отзыв или вопрос */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /**
+                         * @default WISH
+                         * @enum {string}
+                         */
+                        kind?: "WISH" | "REVIEW" | "QUESTION";
+                        name: string;
+                        contact?: string;
+                        message: string;
+                        /**
+                         * @default ru
+                         * @enum {string}
+                         */
+                        locale?: "ru" | "kk";
+                        website?: string;
+                        /** @default false */
+                        isTest?: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            ok: boolean;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/auth/login": {
         parameters: {
             query?: never;
@@ -1065,10 +1124,15 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Удаление файла из медиатеки и из R2 */
+        /**
+         * Удаление файла из медиатеки и из R2
+         * @description Если фото где-то используется, запрос отклоняется и возвращает список мест. С force=true оно сначала отвязывается от товаров и категорий, а потом удаляется.
+         */
         delete: {
             parameters: {
-                query?: never;
+                query?: {
+                    force?: boolean | string;
+                };
                 header?: never;
                 path: {
                     id: string;
@@ -1085,6 +1149,7 @@ export interface paths {
                     content: {
                         "application/json": {
                             ok: boolean;
+                            detached: number;
                         };
                     };
                 };
@@ -1261,6 +1326,7 @@ export interface paths {
                                 isActive: boolean;
                                 sortOrder: number;
                                 stockQty: number | null;
+                                costPrice: number | null;
                                 updatedAt: string;
                             }[];
                             total: number;
@@ -1295,6 +1361,7 @@ export interface paths {
                         descriptionKk?: string | null;
                         price: number;
                         compareAtPrice?: number | null;
+                        costPrice?: number | null;
                         weightValue: number;
                         /**
                          * @default G
@@ -1476,6 +1543,7 @@ export interface paths {
                             isActive: boolean;
                             sortOrder: number;
                             stockQty: number | null;
+                            costPrice: number | null;
                             updatedAt: string;
                         };
                     };
@@ -1648,6 +1716,7 @@ export interface paths {
                             isActive: boolean;
                             sortOrder: number;
                             stockQty: number | null;
+                            costPrice: number | null;
                             updatedAt: string;
                         };
                     };
@@ -1681,6 +1750,7 @@ export interface paths {
                         descriptionKk?: string | null;
                         price: number;
                         compareAtPrice?: number | null;
+                        costPrice?: number | null;
                         weightValue: number;
                         /**
                          * @default G
@@ -1862,6 +1932,7 @@ export interface paths {
                             isActive: boolean;
                             sortOrder: number;
                             stockQty: number | null;
+                            costPrice: number | null;
                             updatedAt: string;
                         };
                     };
@@ -1926,6 +1997,7 @@ export interface paths {
                         ids: string[];
                         patch: {
                             price?: number;
+                            costPrice?: number | null;
                             isActive?: boolean;
                             isFeatured?: boolean;
                             /** @enum {string} */
@@ -2715,8 +2787,9 @@ export interface paths {
                 query?: {
                     status?: "NEW" | "CONFIRMED" | "COOKING" | "DELIVERING" | "DONE" | "CANCELLED";
                     search?: string;
-                    includeTest?: boolean;
+                    includeTest?: boolean | string;
                     paid?: "yes" | "no";
+                    archived?: "no" | "only" | "all";
                     limit?: number;
                     offset?: number;
                 };
@@ -2754,6 +2827,7 @@ export interface paths {
                                 isTest: boolean;
                                 isPaid: boolean;
                                 paidAt: string | null;
+                                archivedAt: string | null;
                                 createdAt: string;
                                 itemsCount: number;
                                 items: {
@@ -2851,6 +2925,7 @@ export interface paths {
                             isTest: boolean;
                             isPaid: boolean;
                             paidAt: string | null;
+                            archivedAt: string | null;
                             createdAt: string;
                             itemsCount: number;
                             items: {
@@ -2941,6 +3016,7 @@ export interface paths {
                             isTest: boolean;
                             isPaid: boolean;
                             paidAt: string | null;
+                            archivedAt: string | null;
                             createdAt: string;
                             itemsCount: number;
                             items: {
@@ -2968,6 +3044,142 @@ export interface paths {
                 };
             };
         };
+        trace?: never;
+    };
+    "/api/v1/admin/orders/{id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Архивация заказа (мягкая альтернатива удалению)
+         * @description Архивный заказ исчезает из канбана и из финансового отчёта, но остаётся в базе и восстанавливается тем же запросом с archived: false.
+         */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        archived: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            number: string;
+                            customerName: string;
+                            phone: string;
+                            /** @enum {string} */
+                            channel: "WHATSAPP" | "TELEGRAM";
+                            /** @enum {string} */
+                            customerType: "PERSON" | "BUSINESS";
+                            /** @enum {string} */
+                            deliveryType: "DELIVERY" | "PICKUP";
+                            address: string | null;
+                            comment: string | null;
+                            subtotal: number;
+                            deliveryFee: number;
+                            total: number;
+                            /** @enum {string} */
+                            status: "NEW" | "CONFIRMED" | "COOKING" | "DELIVERING" | "DONE" | "CANCELLED";
+                            isTest: boolean;
+                            isPaid: boolean;
+                            paidAt: string | null;
+                            archivedAt: string | null;
+                            createdAt: string;
+                            itemsCount: number;
+                            items: {
+                                id: string;
+                                productId: string | null;
+                                nameRu: string;
+                                nameKk: string;
+                                price: number;
+                                qty: number;
+                                weightLabel: string;
+                            }[];
+                            chatUrl: string;
+                            events: {
+                                id: string;
+                                /** @enum {string|null} */
+                                fromStatus: "NEW" | "CONFIRMED" | "COOKING" | "DELIVERING" | "DONE" | "CANCELLED" | null;
+                                /** @enum {string} */
+                                toStatus: "NEW" | "CONFIRMED" | "COOKING" | "DELIVERING" | "DONE" | "CANCELLED";
+                                note: string | null;
+                                userName: string | null;
+                                createdAt: string;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/admin/orders/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Безвозвратное удаление заказа (только владелец, только из архива)
+         * @description Сначала заказ нужно отправить в архив. Удаление снимает его вместе с позициями и историей статусов — отменить это нельзя.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @enum {number} */
+                            deleted: 1;
+                            number: string;
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/admin/orders/test": {
@@ -3270,6 +3482,357 @@ export interface paths {
                 };
             };
         };
+        trace?: never;
+    };
+    "/api/v1/admin/finance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Отчёт по продажам, выручке и прибыли
+         * @description Отменённые, архивные и тестовые заказы в отчёт не входят. Прибыль = деньги за товары минус себестоимость; доставка в прибыль не идёт.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    from?: string;
+                    to?: string;
+                    paidOnly?: boolean | string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            from: string;
+                            to: string;
+                            totals: {
+                                key: string;
+                                orders: number;
+                                goods: number;
+                                delivery: number;
+                                revenue: number;
+                                cost: number;
+                                profit: number | null;
+                            };
+                            payment: {
+                                paidCount: number;
+                                paidAmount: number;
+                                unpaidCount: number;
+                                unpaidAmount: number;
+                            };
+                            coverage: {
+                                positions: number;
+                                positionsWithCost: number;
+                                goodsWithCost: number;
+                                goodsWithoutCost: number;
+                                missing: {
+                                    nameRu: string;
+                                    qty: number;
+                                    goods: number;
+                                }[];
+                            };
+                            byDay: {
+                                key: string;
+                                orders: number;
+                                goods: number;
+                                delivery: number;
+                                revenue: number;
+                                cost: number;
+                                profit: number | null;
+                            }[];
+                            byProduct: {
+                                key: string;
+                                orders: number;
+                                goods: number;
+                                delivery: number;
+                                revenue: number;
+                                cost: number;
+                                profit: number | null;
+                                qty: number;
+                                hasCost: boolean;
+                            }[];
+                            byStatus: {
+                                status: string;
+                                orders: number;
+                                revenue: number;
+                            }[];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/feedback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Сообщения с витрины */
+        get: {
+            parameters: {
+                query?: {
+                    kind?: "WISH" | "REVIEW" | "QUESTION";
+                    read?: "yes" | "no";
+                    search?: string;
+                    includeTest?: boolean | string;
+                    archived?: "no" | "only" | "all";
+                    limit?: number;
+                    offset?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: {
+                                id: string;
+                                /** @enum {string} */
+                                kind: "WISH" | "REVIEW" | "QUESTION";
+                                name: string;
+                                contact: string | null;
+                                message: string;
+                                locale: string;
+                                isRead: boolean;
+                                readAt: string | null;
+                                isTest: boolean;
+                                archivedAt: string | null;
+                                createdAt: string;
+                                replyUrl: string | null;
+                            }[];
+                            total: number;
+                            unread: number;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/feedback/unread": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Сколько непрочитанных сообщений */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            unread: number;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/feedback/{id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Отметка «прочитано» */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        isRead: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            /** @enum {string} */
+                            kind: "WISH" | "REVIEW" | "QUESTION";
+                            name: string;
+                            contact: string | null;
+                            message: string;
+                            locale: string;
+                            isRead: boolean;
+                            readAt: string | null;
+                            isTest: boolean;
+                            archivedAt: string | null;
+                            createdAt: string;
+                            replyUrl: string | null;
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/admin/feedback/{id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Архивация сообщения (мягкая альтернатива удалению) */
+        patch: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        archived: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            id: string;
+                            /** @enum {string} */
+                            kind: "WISH" | "REVIEW" | "QUESTION";
+                            name: string;
+                            contact: string | null;
+                            message: string;
+                            locale: string;
+                            isRead: boolean;
+                            readAt: string | null;
+                            isTest: boolean;
+                            archivedAt: string | null;
+                            createdAt: string;
+                            replyUrl: string | null;
+                        };
+                    };
+                };
+            };
+        };
+        trace?: never;
+    };
+    "/api/v1/admin/feedback/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Очистка сообщений, созданных прогонами Playwright */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Default Response */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            deleted: number;
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
 }

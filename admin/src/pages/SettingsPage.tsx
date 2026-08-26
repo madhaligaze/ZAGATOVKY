@@ -4,7 +4,16 @@ import * as Tabs from '@radix-ui/react-tabs';
 import { AlertTriangle, Info, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api, keys, type AdminCategory, type PublicSettings } from '@/lib/api';
-import { Button, Callout, Field, Input, Panel, Spinner, Textarea } from '@/components/ui';
+import {
+  Button,
+  Callout,
+  Field,
+  Input,
+  Panel,
+  SaveButton,
+  Spinner,
+  Textarea,
+} from '@/components/ui';
 
 /**
  * Номер из сида. Пока он не заменён, ссылка «написать в WhatsApp» ведёт в никуда —
@@ -160,10 +169,11 @@ const CategoriesEditor = () => {
 
             <span className="pb-2 text-2xs text-faint">{category.productCount} товаров</span>
 
-            <Button
-              size="sm"
-              variant="primary"
-              disabled={!dirty}
+            <SaveButton
+              isPending={save.isPending && save.variables?.id === category.id}
+              isSuccess={save.isSuccess && save.variables?.id === category.id}
+              dirty={dirty}
+              cleanLabel="Сохранено"
               onClick={() => {
                 save.mutate({ id: category.id, body: current });
                 setDraft((state) => {
@@ -172,9 +182,7 @@ const CategoriesEditor = () => {
                   return next;
                 });
               }}
-            >
-              Сохранить
-            </Button>
+            />
 
             <Button
               size="iconSm"
@@ -242,6 +250,22 @@ export const SettingsPage = () => {
   const patch = <G extends keyof PublicSettings>(group: G, value: PublicSettings[G]) =>
     setDraft({ ...draft, [group]: value });
 
+  /*
+   * Состояние кнопки считается для каждой вкладки отдельно.
+   *
+   * Мутация одна на все группы, поэтому её isPending/isSuccess без проверки
+   * variables зажигали бы сразу пять кнопок — включая те, на которые не нажимали.
+   * «Есть что сохранять» определяем сравнением черновика с тем, что пришло
+   * с сервера: после успешного сохранения кэш обновляется и кнопка гаснет сама.
+   */
+  const groupProps = (group: Exclude<keyof PublicSettings, never>) => ({
+    isPending: save.isPending && save.variables?.group === group,
+    isSuccess: save.isSuccess && save.variables?.group === group,
+    dirty: JSON.stringify(draft[group]) !== JSON.stringify(data?.[group]),
+    onClick: () =>
+      save.mutate({ group, body: draft[group] as unknown as Record<string, unknown> }),
+  });
+
   return (
     <div className="flex flex-col gap-4">
       <div>
@@ -274,13 +298,7 @@ export const SettingsPage = () => {
           <Panel
             title="Контакты"
             action={
-              <Button
-                size="sm"
-                variant="primary"
-                onClick={() => save.mutate({ group: 'contacts', body: draft.contacts })}
-              >
-                Сохранить
-              </Button>
+              <SaveButton {...groupProps('contacts')} data-testid="save-contacts" />
             }
           >
             <div className="flex flex-col gap-4">
@@ -361,13 +379,7 @@ export const SettingsPage = () => {
           <Panel
             title="Доставка"
             action={
-              <Button
-                size="sm"
-                variant="primary"
-                onClick={() => save.mutate({ group: 'delivery', body: draft.delivery })}
-              >
-                Сохранить
-              </Button>
+              <SaveButton {...groupProps('delivery')} data-testid="save-delivery" />
             }
           >
             <div className="flex flex-col gap-4">
@@ -430,13 +442,7 @@ export const SettingsPage = () => {
           <Panel
             title="Оплата"
             action={
-              <Button
-                size="sm"
-                variant="primary"
-                onClick={() => save.mutate({ group: 'payment', body: draft.payment })}
-              >
-                Сохранить
-              </Button>
+              <SaveButton {...groupProps('payment')} data-testid="save-payment" />
             }
           >
             <div className="flex flex-col gap-4">
@@ -513,13 +519,7 @@ export const SettingsPage = () => {
           <Panel
             title="Бренд"
             action={
-              <Button
-                size="sm"
-                variant="primary"
-                onClick={() => save.mutate({ group: 'brand', body: draft.brand })}
-              >
-                Сохранить
-              </Button>
+              <SaveButton {...groupProps('brand')} data-testid="save-brand" />
             }
           >
             <div className="flex flex-col gap-4">
