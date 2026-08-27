@@ -8,6 +8,8 @@ import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { PageState } from '@/components/ui/PageState';
 import { useLocale } from '@/hooks/useLocale';
+import { useSeo } from '@/hooks/useSeo';
+import { productJsonLd } from '@/lib/jsonld';
 import { useCart, selectQtyOf } from '@/store/cart';
 import { flyToCart } from '@/lib/motion';
 import { formatPrice, formatWeight, pick, pricePerHundred } from '@/lib/format';
@@ -29,6 +31,34 @@ export const ProductPage = () => {
   const setQty = useCart((state) => state.setQty);
   const openCart = useCart((state) => state.open);
   const qty = useCart(selectQtyOf(product?.id ?? ''));
+
+  /*
+   * Мета-теги ставим до ранних возвратов — правило хуков. Пока товар грузится,
+   * значения запасные; как только пришёл — заголовок и разметка обновляются.
+   *
+   * Заголовок берём из поля SEO, если владелец его заполнил, иначе собираем
+   * из названия и веса: «Свекла 250 г — заготовка с доставкой в Алматы» лучше
+   * ловит запрос, чем одно название.
+   */
+  const seoName = product ? pick(product.name, locale) : '';
+  const seoTitle = product
+    ? pick(product.seoTitle, locale) ||
+      `${seoName}, ${formatWeight(product.weight, locale)} — заготовка с доставкой в Алматы`
+    : 'ZAGATOVKY';
+  const seoDescription = product
+    ? pick(product.seoDescription, locale) ||
+      pick(product.description, locale) ||
+      pick(product.short, locale)
+    : null;
+
+  useSeo({
+    title: seoTitle,
+    description: seoDescription,
+    path: `/product/${slug}`,
+    image: product?.image?.url ?? null,
+    type: 'product',
+    jsonLd: product ? productJsonLd(product, locale, window.location.origin) : undefined,
+  });
 
   if (isPending) return <PageState />;
   if (isError || !product) {

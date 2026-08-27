@@ -26,7 +26,12 @@ COPY --from=build /app/dist /usr/share/nginx/html
 
 # Railway передаёт свой порт через PORT; локально по умолчанию 8080
 ENV PORT=8080
-# Подставляем только PORT, чтобы envsubst не тронул $uri и $host в конфиге
-ENV NGINX_ENVSUBST_FILTER=PORT
+# Адрес API для проксирования /sitemap.xml. Значение по умолчанию обязательно:
+# пустая переменная превратилась бы в «proxy_pass ;», и nginx не стартовал бы
+# вовсе — то есть из-за карты сайта легла бы вся витрина.
+ENV BACKEND_URL=https://zagatovky-backend-production.up.railway.app
+
+# Подставляем только свои переменные, чтобы envsubst не тронул $uri и $host
+ENV NGINX_ENVSUBST_FILTER='(PORT|BACKEND_URL)'
 
 EXPOSE 8080

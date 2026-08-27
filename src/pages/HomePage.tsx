@@ -12,6 +12,11 @@ import {
 } from '@/components/home/HomeSections';
 import { FeedbackSection } from '@/components/home/FeedbackSection';
 import { PageState } from '@/components/ui/PageState';
+import { useLocale } from '@/hooks/useLocale';
+import { usePublicSettings } from '@/hooks/usePublicSettings';
+import { useSeo } from '@/hooks/useSeo';
+import { storeJsonLd } from '@/lib/jsonld';
+import { pick } from '@/lib/format';
 import type { HomeSection } from '@/types/catalog';
 
 /**
@@ -52,6 +57,20 @@ export const HomePage = () => {
     queryKey: queryKeys.products({ featured: true, limit: 1 }),
     queryFn: () => api.products({ featured: true, limit: 1 }),
     staleTime: 5 * 60 * 1000,
+  });
+
+  const { locale } = useLocale();
+  const { data: settings } = usePublicSettings();
+
+  // Разметка магазина: адрес, телефон и город берутся из настроек кабинета,
+  // поэтому в выдаче не разойдутся с тем, что написано в подвале
+  useSeo({
+    title: 'ZAGATOVKY — заготовки для дома и заведений, доставка по Алматы',
+    description: settings
+      ? pick(settings.brand.tagline, locale)
+      : 'Нарезанные, взвешенные и упакованные заготовки для готовки. Алматы, доставка в день нарезки.',
+    path: '/',
+    jsonLd: storeJsonLd(settings, locale, window.location.origin),
   });
 
   if (isPending || isError) {

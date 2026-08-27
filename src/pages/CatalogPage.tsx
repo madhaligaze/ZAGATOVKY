@@ -5,6 +5,7 @@ import { api, queryKeys } from '@/lib/api';
 import { ProductCard } from '@/components/catalog/ProductCard';
 import { PageState } from '@/components/ui/PageState';
 import { useLocale } from '@/hooks/useLocale';
+import { useSeo } from '@/hooks/useSeo';
 import { Flip, gsap, prefersReducedMotion } from '@/lib/motion';
 import { ArrowUpDown } from 'lucide-react';
 import { pick } from '@/lib/format';
@@ -32,6 +33,28 @@ export const CatalogPage = () => {
     queryKey: queryKeys.products(query),
     queryFn: () => api.products(query),
     placeholderData: keepPreviousData,
+  });
+
+  /*
+   * Canonical для каталога включает фильтр, но не сортировку: категория — это
+   * действительно другая страница, а порядок карточек — та же самая. Без этого
+   * пять вариантов сортировки выглядели бы для поисковика как пять дублей.
+   */
+  const activeCategory = (categories ?? []).find((item) => item.slug === category);
+  const catalogTitle =
+    type === 'BUNDLE'
+      ? `${t('catalog.bundlesTitle')} — ${t('catalog.bundlesSubtitle')}`
+      : activeCategory
+        ? `${pick(activeCategory.name, locale)} — заготовки с доставкой в Алматы`
+        : `${t('catalog.title')} — доставка в день нарезки, Алматы`;
+
+  useSeo({
+    title: catalogTitle,
+    description:
+      type === 'BUNDLE'
+        ? t('catalog.bundlesSubtitle')
+        : (activeCategory && pick(activeCategory.description, locale)) || t('catalog.subtitle'),
+    path: type === 'BUNDLE' ? '/catalog?type=BUNDLE' : category ? `/catalog?category=${category}` : '/catalog',
   });
 
   const gridRef = useRef<HTMLDivElement>(null);

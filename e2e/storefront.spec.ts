@@ -391,3 +391,94 @@ test.describe('Тяжёлые эффекты знают своё место', ()
     await context.close();
   });
 });
+
+test.describe('Поисковая выдача и превью ссылок', () => {
+  const head = (page: import('@playwright/test').Page) =>
+    page.evaluate(() => ({
+      title: document.title,
+      canonical: document.querySelector<HTMLLinkElement>('link[rel="canonical"]')?.href ?? null,
+      description:
+        document.querySelector<HTMLMetaElement>('meta[name="description"]')?.content ?? null,
+      ogTitle:
+        document.querySelector<HTMLMetaElement>('meta[property="og:title"]')?.content ?? null,
+      ogUrl: document.querySelector<HTMLMetaElement>('meta[property="og:url"]')?.content ?? null,
+      jsonLd: Array.from(
+        document.querySelectorAll<HTMLScriptElement>('script[type="application/ld+json"]'),
+      ).map((node) => JSON.parse(node.textContent ?? '{}')),
+    }));
+
+  test('@smoke у товара свой заголовок и canonical на себя, а не на главную', async ({ page }) => {
+    await page.goto('/product/svekla');
+    await expect(page.getByRole('heading', { name: 'Свекла', level: 1 })).toBeVisible();
+
+    const meta = await head(page);
+
+    // Раньше canonical был статически прописан в index.html и на каждой странице
+    // указывал на главную — это прямой способ выкинуть каталог из индекса
+    expect(meta.canonical).toContain('/product/svekla');
+    expect(meta.title).toContain('Свекла');
+    expect(meta.ogTitle).toContain('Свекла');
+    expect(meta.ogUrl).toContain('/product/svekla');
+    expect(meta.description && meta.description.length > 10).toBeTruthy();
+  });
+
+  test('@smoke товар отдаёт разметку с ценой и наличием', async ({ page }) => {
+    await page.goto('/product/svekla');
+    await expect(page.getByRole('heading', { name: 'Свекла', level: 1 })).toBeVisible();
+
+    const { jsonLd } = await head(page);
+    const graph = jsonLd.flatMap((entry) => entry['@graph'] ?? [entry]);
+
+    const product = graph.find((node) => node['@type'] === 'Product');
+    expect(product).toBeTruthy();
+    expect(product.name).toBe('Свекла');
+    expect(product.offers.price).toBe(330);
+    expect(product.offers.priceCurrency).toBe('KZT');
+    expect(product.offers.availability).toContain('InStock');
+
+    // Хлебные крошки Google показывает прямо в выдаче вместо голого адреса
+    const crumbs = graph.find((node) => node['@type'] === 'BreadcrumbList');
+    expect(crumbs.itemListElement).toHaveLength(3);
+  });
+
+  test('@smoke canonical каталога учитывает категорию, но не сортировку', async ({ page }) => {
+    await page.goto('/catalog?category=ovoshchi&sort=price_asc');
+    await expect(page.getByTestId('product-grid')).toBeVisible();
+
+    const meta = await head(page);
+
+    // Категория — отдельная страница, порядок карточек — та же самая:
+    // иначе пять сортировок выглядели бы как пять дублей
+    expect(meta.canonical).toContain('category=ovoshchi');
+    expect(meta.canonical).not.toContain('sort=');
+    expect(meta.title).toContain('Алматы');
+  });
+
+  test('@smoke главная отдаёт разметку магазина с городом', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+
+    const meta = await head(page);
+    expect(meta.canonical).toMatch(/\/$/);
+
+    const store = meta.jsonLd.find((entry) => entry['@type'] === 'Store');
+    expect(store).toBeTruthy();
+    expect(store.address.addressCountry).toBe('KZ');
+    expect(store.areaServed.name).toBe('Алматы');
+  });
+
+  test('@smoke переход между страницами обновляет заголовок и canonical', async ({ page }) => {
+    await page.goto('/');
+    const home = await head(page);
+
+    await page.goto('/catalog');
+    await expect(page.getByTestId('product-grid')).toBeVisible();
+    const catalog = await head(page);
+
+    // Тег canonical один на документ: он должен переписываться при навигации,
+    // а не накапливаться и не залипать на первой открытой странице
+    expect(catalog.canonical).not.toBe(home.canonical);
+    expect(catalog.title).not.toBe(home.title);
+    expect(await page.locator('link[rel="canonical"]').count()).toBe(1);
+  });
+});

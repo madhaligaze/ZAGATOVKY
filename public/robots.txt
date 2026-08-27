@@ -5,4 +5,6 @@ Allow: /
 Disallow: /checkout
 Disallow: /success
 
+# Карта собирается из базы на бэкенде и проксируется nginx'ом:
+# статический файл устаревал на первой же новой позиции в каталоге.
 Sitemap: https://zagatovky.men/sitemap.xml
