@@ -132,12 +132,10 @@ export const CatalogPage = () => {
     <>
       <section className="band-parchment border-b border-hairline pb-12 pt-16">
         <div className="container-page">
-          {/* Заголовок меняется вместе с фильтром: переход «Наборы» из шапки
-              должен читаться сразу, а не только по составу сетки. */}
-          <p className="eyebrow gold-rule text-stone">
-            {type === 'BUNDLE' ? t('nav.bundles') : t('nav.catalog')}
-          </p>
-          <h1 className="font-editorial mt-4 text-display" data-testid="catalog-title">
+          {/* Надзаголовка здесь нет намеренно: он повторял слово из заголовка
+              один в один — «Каталог» над «Каталогом заготовок». Смену фильтра
+              и так видно по самому заголовку: он меняется на «Готовые наборы». */}
+          <h1 className="font-editorial text-display" data-testid="catalog-title">
             {type === 'BUNDLE' ? t('catalog.bundlesTitle') : t('catalog.title')}
           </h1>
           <p className="mt-4 max-w-xl text-lead text-mountain/70">
