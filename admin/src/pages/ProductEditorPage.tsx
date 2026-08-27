@@ -98,9 +98,16 @@ export const ProductEditorPage = () => {
     enabled: draft.type === 'BUNDLE',
   });
 
+  /*
+   * Снимок сохранённого состояния. По нему считается «есть ли несохранённые
+   * правки»: без этого кнопка всегда выглядела активной, и было не понять,
+   * сохранил ты уже или нет.
+   */
+  const [saved, setSaved] = useState<string | null>(null);
+
   useEffect(() => {
     if (!product) return;
-    setDraft({
+    const next: Draft = {
       slug: product.slug,
       type: product.type,
       nameRu: product.name.ru,
@@ -132,8 +139,28 @@ export const ProductEditorPage = () => {
         componentId: item.product.id,
         qty: item.qty,
       })),
-    });
+    };
+    setDraft(next);
+    setSaved(JSON.stringify(next));
   }, [product]);
+
+  // Новый товар считаем изменённым всегда: сохранять там пока нечего с чем сравнить
+  const dirty = saved === null ? true : JSON.stringify(draft) !== saved;
+
+  /*
+   * Предупреждение при закрытии вкладки или перезагрузке.
+   *
+   * Уход по ссылкам внутри кабинета так не перехватить: для этого нужен
+   * маршрутизатор с поддержкой блокировки, а у нас обычный BrowserRouter.
+   * Поэтому вторая половина защиты — видимая отметка на кнопке: пока правки
+   * не сохранены, она горит «Сохранить», а не «Всё сохранено».
+   */
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [dirty]);
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) =>
     setDraft((current) => ({ ...current, [key]: value }));
@@ -260,6 +287,8 @@ export const ProductEditorPage = () => {
           size="md"
           isPending={save.isPending}
           isSuccess={save.isSuccess}
+          dirty={dirty}
+          cleanLabel="Всё сохранено"
           onClick={submit}
           data-testid="save-product"
         />

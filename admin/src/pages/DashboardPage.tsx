@@ -17,7 +17,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { AlertTriangle, Eye, EyeOff, GripVertical, ImageOff, Info, PackageX } from 'lucide-react';
-import { api, keys, type Stats } from '@/lib/api';
+import { api, keys, type PublicSettings, type Stats } from '@/lib/api';
 import { useWorkspace } from '@/store/workspace';
 import { Button, Callout, Chip, Panel, Spinner } from '@/components/ui';
 import { isDemoWhatsapp } from './SettingsPage';
@@ -237,9 +237,13 @@ const widgetSpan: Record<string, string> = {
  * Что мешает витрине работать прямо сейчас. Список короткий и исчезает целиком,
  * когда всё настроено: постоянная «панель советов» быстро становится шумом.
  */
-const SetupChecklist = ({ withoutPhoto }: { withoutPhoto: number }) => {
-  const { data } = useQuery({ queryKey: keys.settings, queryFn: api.publicSettings });
-  if (!data) return null;
+const SetupChecklist = ({
+  withoutPhoto,
+  data,
+}: {
+  withoutPhoto: number;
+  data: PublicSettings;
+}) => {
 
   const todo: { text: ReactNode; to: string; blocking: boolean }[] = [];
 
@@ -316,6 +320,19 @@ export const DashboardPage = () => {
     refetchInterval: 60_000,
   });
 
+  /*
+   * Настройки ждём вместе со статистикой, а не отдельно.
+   *
+   * Раньше список «что донастроить» появлялся на 350 мс позже остальной страницы
+   * и толкал вниз всю сетку виджетов — самый заметный скачок во всём кабинете
+   * (CLS 0.05). Запрос дешёвый и кэшируется, так что задержки не видно, зато
+   * страница показывается сразу собранной.
+   */
+  const { data: settings, isPending: settingsPending } = useQuery({
+    queryKey: keys.settings,
+    queryFn: api.publicSettings,
+  });
+
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   const visible = useMemo(
@@ -334,7 +351,7 @@ export const DashboardPage = () => {
     patch({ widgets: arrayMove(workspace.widgets, from, to) });
   };
 
-  if (isPending || !stats) return <Spinner />;
+  if (isPending || settingsPending || !stats || !settings) return <Spinner />;
 
   return (
     <div className="flex flex-col gap-4">
@@ -365,7 +382,7 @@ export const DashboardPage = () => {
         )}
       </div>
 
-      <SetupChecklist withoutPhoto={stats.catalog.withoutPhoto} />
+      <SetupChecklist withoutPhoto={stats.catalog.withoutPhoto} data={settings} />
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
         <SortableContext items={visible} strategy={rectSortingStrategy}>

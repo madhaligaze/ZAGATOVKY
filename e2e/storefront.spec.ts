@@ -540,3 +540,82 @@ test.describe('Порции рядом с весом', () => {
     await expect(page.locator('main')).toContainText(/4\s*порцияға/i, { timeout: 10_000 });
   });
 });
+
+test.describe('Ничего не остаётся невидимым', () => {
+  /*
+   * Регрессия, которую 87 тестов пропустили.
+   *
+   * Категории на главной грузятся отдельным запросом и приезжали уже после того,
+   * как хук появления отработал. Карточки оставались с opacity: 0 из CSS — и
+   * человек видел на их месте серый прямоугольник, будто блок не загрузился.
+   * Все проверки при этом проходили: элементы в разметке присутствовали.
+   *
+   * Поэтому проверяем не наличие в DOM, а видимость после прокрутки.
+   */
+  const hiddenAfterScroll = async (page: import('@playwright/test').Page) => {
+    await page.evaluate(async () => {
+      const step = window.innerHeight * 0.8;
+      for (let y = 0; y < document.body.scrollHeight; y += step) {
+        window.scrollTo(0, y);
+        await new Promise((resolve) => setTimeout(resolve, 220));
+      }
+    });
+    await page.waitForTimeout(1200);
+
+    return page.evaluate(() =>
+      Array.from(document.querySelectorAll('.reveal')).reduce<string[]>((stuck, el) => {
+        const box = el.getBoundingClientRect();
+        if (box.width === 0 && box.height === 0) return stuck;
+        if (Number(getComputedStyle(el).opacity) >= 0.9) return stuck;
+
+        const section = el.closest('section');
+        const title = section?.querySelector('h1, h2')?.textContent?.trim().slice(0, 40) ?? '—';
+        stuck.push(`${title}: ${(el.textContent ?? '').trim().slice(0, 30)}`);
+        return stuck;
+      }, []),
+    );
+  };
+
+  test('@smoke на главной не остаётся невидимых блоков', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    expect(await hiddenAfterScroll(page)).toEqual([]);
+  });
+
+  test('@smoke категории на главной действительно видны', async ({ page }) => {
+    await page.goto('/');
+
+    const cards = page.locator('a[href^="/catalog?category="]');
+    await expect(cards.first()).toBeVisible({ timeout: 15_000 });
+
+    // Блок лежит ниже сгиба, а появление привязано к прокрутке — сперва доводим
+    // его до экрана, иначе проверяли бы законно ещё не показанный элемент
+    await cards.first().scrollIntoViewIfNeeded();
+
+    // Именно этот блок и выглядел незагрузившимся: карточки были в разметке,
+    // но полностью прозрачные, и сквозь них просвечивал фон-разделитель
+    await expect
+      .poll(() => cards.first().evaluate((el) => Number(getComputedStyle(el).opacity)), {
+        timeout: 10_000,
+      })
+      .toBeGreaterThan(0.9);
+  });
+
+  test('@smoke каталог тоже не оставляет невидимых блоков', async ({ page }) => {
+    await page.goto('/catalog');
+    await expect(page.getByTestId('product-grid')).toBeVisible();
+    expect(await hiddenAfterScroll(page)).toEqual([]);
+  });
+
+  test('@smoke несуществующий адрес закрыт от индексации', async ({ page }) => {
+    await page.goto('/takoy-stranicy-net-12345');
+
+    // Страница отдаётся с кодом 200, поэтому без запрета поисковик
+    // проиндексировал бы любую опечатку в адресе как дубль главной
+    await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
+      'content',
+      /noindex/,
+    );
+    expect(await page.title()).not.toBe('ZAGATOVKY — заготовки для дома и заведений');
+  });
+});

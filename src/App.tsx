@@ -1,14 +1,32 @@
 import { Suspense, lazy } from 'react';
-import { Link, Route, Routes } from 'react-router-dom';
+import { Link, Route, Routes, useLocation } from 'react-router-dom';
 import { RootLayout } from '@/components/layout/RootLayout';
 import { HomePage } from '@/pages/HomePage';
 import { PageState } from '@/components/ui/PageState';
 import { Button } from '@/components/ui/Button';
 import { useLocale } from '@/hooks/useLocale';
+import { useSeo } from '@/hooks/useSeo';
 
 /** Страница «не найдено»: тот же вертикальный ритм, что у остальных состояний. */
 const NotFoundPage = () => {
   const { t } = useLocale();
+  const { pathname } = useLocation();
+
+  /*
+   * Единственное место, где noindex обязателен.
+   *
+   * SPA отдаёт эту страницу с кодом 200, поэтому для поисковика она неотличима
+   * от нормальной: любой опечатанный адрес рискует попасть в индекс дублем
+   * главной. Заодно даём свой заголовок вкладки — раньше в ней стоял общий
+   * заголовок сайта, и в истории браузера ошибка выглядела как главная.
+   */
+  useSeo({
+    title: `${t('common.notFoundTitle')} — ZAGATOVKY`,
+    description: t('common.notFoundHint'),
+    path: pathname,
+    noindex: true,
+  });
+
   return (
     <div className="grid min-h-[calc(100dvh-4.5rem)] place-items-center px-6 text-center">
       <div className="flex flex-col items-center gap-4">

@@ -29,8 +29,12 @@ const ProductGrid = ({ products }: { products: ProductCardData[] }) => (
 
 export const CategoriesSection = ({ section }: { section: HomeSection }) => {
   const { t, locale } = useLocale();
-  const ref = useReveal<HTMLElement>();
   const { data } = useQuery({ queryKey: queryKeys.categories, queryFn: api.categories });
+
+  // Категории приезжают отдельным запросом уже после монтирования секции.
+  // Без data в зависимостях хук отрабатывал на пустом контейнере, и пришедшие
+  // следом карточки навсегда оставались невидимыми — блок выглядел незагруженным.
+  const ref = useReveal<HTMLElement>([data]);
 
   return (
     <section ref={ref} className="band band-snow">
