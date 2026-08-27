@@ -123,9 +123,13 @@ export const ProductCard = ({ product, className }: Props) => {
 
         {/* На телефоне описание раньше пряталось совсем, и на его месте
             оставалась дыра в 36–74 px между весом и ценой. Одна строка
-            заполняет её содержанием. */}
+            заполняет её содержанием.
+
+            Прячем через max-*:hidden, а не через hidden + min-*:block:
+            line-clamp работает на display:-webkit-box, и любой block выше
+            брейкпоинта его отменяет — обрезка молча перестаёт действовать. */}
         {pick(product.short, locale) && (
-          <p className="hidden line-clamp-1 text-body-sm text-stone min-[360px]:block sm:line-clamp-2">
+          <p className="line-clamp-1 text-body-sm text-stone max-[359px]:hidden sm:line-clamp-2">
             {pick(product.short, locale)}
           </p>
         )}

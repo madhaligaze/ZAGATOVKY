@@ -114,10 +114,16 @@ export const HeroSection = ({ section, highlight }: Props) => {
 
   return (
     <section ref={rootRef} className="relative overflow-hidden bg-mountain text-parchment">
-      {/* Несущая типографика первого экрана. Лежит позади контента и живёт
-          независимо от того, есть ли у нас хоть одна фотография. */}
+      {/* Несущая типографика первого экрана.
+          Раньше лента стояла по центру секции — там же, где сетка ставит
+          заголовок (items-center). Они были центрированы по одной оси и
+          обязаны были наложиться: буквы кеглем 240 px шли сквозь «упаковано»,
+          а на телефоне — сквозь кнопку «Как это работает».
+          Теперь лента прижата к нижнему краю и подрезана им: слово работает
+          цоколем первого экрана и переходом к следующей полосе, а не вуалью
+          под заголовком. */}
       <div
-        className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 select-none"
+        className="pointer-events-none absolute inset-x-0 bottom-0 translate-y-[28%] select-none"
         data-testid="hero-band"
       >
         <KineticBand
@@ -126,7 +132,9 @@ export const HeroSection = ({ section, highlight }: Props) => {
           repeat={3}
           distance={-380}
           className={cn(
-            'text-[clamp(5rem,17vw,15rem)] text-parchment/[0.13] transition-opacity duration-700',
+            // Ушла из-под заголовка — можно дать чуть больше плотности,
+            // чтобы читалась как приём, а не как непрокрасившийся слой
+            'text-[clamp(5rem,17vw,15rem)] text-parchment/[0.16] transition-opacity duration-700',
             // Когда канвас готов — DOM-лента уходит, чтобы надпись не двоилась
             flowmapReady && 'opacity-0',
           )}
