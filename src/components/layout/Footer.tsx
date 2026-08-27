@@ -4,6 +4,7 @@ import { useLocale } from '@/hooks/useLocale';
 import { Button } from '@/components/ui/Button';
 import { LogoMark } from '@/components/ui/LogoMark';
 import { pick } from '@/lib/format';
+import { formatKzPhone } from '@/lib/phone';
 
 export const Footer = () => {
   const { t, locale } = useLocale();
@@ -15,7 +16,9 @@ export const Footer = () => {
   return (
     <footer id="contacts" className="band band-mountain">
       <div className="container-page">
-        <div className="grid gap-12 md:grid-cols-[1.2fr_1fr_1fr]">
+        {/* Четыре колонки только с lg: на 768 px они дают строку в 779 px
+            и уводят всю страницу вбок. */}
+        <div className="grid gap-12 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_0.8fr]">
           <div>
             {/* Тот же знак, что и в шапке. Цвет наследуется от текста, поэтому
                 на тёмной полосе он светлый — отдельная версия файла не нужна. */}
@@ -38,11 +41,20 @@ export const Footer = () => {
             {contacts && (
               <>
                 <a href={`tel:${contacts.phone.replace(/\s/g, '')}`} className="hover:text-honey">
-                  {contacts.phone}
+                  {/* В настройках номер лежит сплошными цифрами. Одиннадцать цифр
+                      подряд нечитаемы и их невозможно продиктовать — показываем
+                      тем же форматтером, что и оформление заказа. */}
+                  {formatKzPhone(contacts.phone.replace(/\D/g, '').replace(/^7/, '')) ||
+                    contacts.phone}
                 </a>
-                <a href={`mailto:${contacts.email}`} className="hover:text-honey">
-                  {contacts.email}
-                </a>
+                {/* Без проверки пустая почта давала <a href="mailto:"> размером
+                    320×0 без доступного имени — ссылку без текста, на которую
+                    встаёт клавиатура. */}
+                {contacts.email && (
+                  <a href={`mailto:${contacts.email}`} className="hover:text-honey">
+                    {contacts.email}
+                  </a>
+                )}
                 <a
                   href={`https://instagram.com/${contacts.instagram}`}
                   target="_blank"
@@ -74,8 +86,20 @@ export const Footer = () => {
                 {pick(settings.delivery.note, locale)}
               </p>
             )}
-            <Link to="/catalog" className="mt-2 text-body-sm hover:text-honey">
+          </div>
+
+          {/* Ссылка на каталог висела в конце колонки «Доставка», под абзацем
+              про зоны, — навигация в логистике. Своя колонка. */}
+          <div className="flex flex-col gap-3">
+            <p className="eyebrow text-honey">{t('footer.nav')}</p>
+            <Link to="/catalog" className="hover:text-honey">
               {t('nav.catalog')}
+            </Link>
+            <Link to="/catalog?type=BUNDLE" className="hover:text-honey">
+              {t('nav.bundles')}
+            </Link>
+            <Link to="/#steps" className="hover:text-honey">
+              {t('nav.how')}
             </Link>
           </div>
         </div>

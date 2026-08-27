@@ -173,7 +173,7 @@ export const CatalogPage = () => {
                 }
                 data-testid={`filter-${filter.key}`}
                 className={cn(
-                  'shrink-0 rounded-pill border px-4 py-2 text-caption uppercase tracking-[0.125em] transition-colors',
+                  'grid min-h-11 shrink-0 place-items-center rounded-pill border px-4 text-caption uppercase tracking-[0.125em] transition-colors',
                   filter.active
                     ? 'border-mountain bg-mountain text-parchment'
                     : 'border-hairline text-mountain hover:border-teal hover:bg-parchment',
@@ -188,7 +188,7 @@ export const CatalogPage = () => {
               занимала половину строки и не давала листать категории.
               Сам select остаётся настоящим — открывается родной выбор системы. */}
           <div className="relative shrink-0">
-            <span className="pointer-events-none flex h-10 w-10 items-center justify-center rounded-pill border border-hairline text-mountain lg:hidden">
+            <span className="pointer-events-none flex h-11 w-11 items-center justify-center rounded-pill border border-hairline text-mountain lg:hidden">
               <ArrowUpDown size={15} strokeWidth={1.75} />
             </span>
 

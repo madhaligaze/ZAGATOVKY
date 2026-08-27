@@ -169,5 +169,6 @@ export const kk: TranslationSchema = {
   footer: {
     rights: 'Үй мен мекемелерге арналған дайындамалар',
     written: 'Бізге жазыңыз',
+    nav: 'Навигация',
   },
 };

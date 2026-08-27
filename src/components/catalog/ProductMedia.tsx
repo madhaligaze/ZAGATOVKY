@@ -1,5 +1,7 @@
 import { forwardRef, useEffect, useState } from 'react';
 import { cn } from '@/lib/cn';
+import { pick } from '@/lib/format';
+import { useLocale } from '@/hooks/useLocale';
 import type { Localized, LocalizedNullable } from '@/types/catalog';
 
 type ImageData = {
@@ -29,6 +31,7 @@ type Props = {
  */
 export const ProductMedia = forwardRef<HTMLDivElement, Props>(
   ({ image, name, className, imageClassName, size = 'card' }, ref) => {
+    const { locale } = useLocale();
     /*
      * Ссылка на фото может быть живой в базе и мёртвой в хранилище: так уже
      * случилось — товар ссылался на файл, которого в R2 нет, и вместо снимка
@@ -43,7 +46,7 @@ export const ProductMedia = forwardRef<HTMLDivElement, Props>(
         <div ref={ref} className={cn('overflow-hidden bg-parchment', className)}>
           <img
             src={image.url}
-            alt={image.alt.ru ?? name}
+            alt={pick(image.alt, locale) || name}
             width={image.width}
             height={image.height}
             loading="lazy"

@@ -8,6 +8,7 @@ import { useReveal } from '@/hooks/useReveal';
 import { useLocale } from '@/hooks/useLocale';
 import { useQuery } from '@tanstack/react-query';
 import { api, queryKeys } from '@/lib/api';
+import { cn } from '@/lib/cn';
 import { pick } from '@/lib/format';
 import type { HomeSection, Locale, ProductCard as ProductCardData } from '@/types/catalog';
 
@@ -18,9 +19,22 @@ const text = (value: unknown, locale: Locale): string =>
     ? ((value as L)[locale] ?? '')
     : '';
 
-/** Сетка товаров, общая для секций «Наборы» и «Подборка». */
+/**
+ * Сетка товаров, общая для секций «Наборы» и «Подборка».
+ *
+ * Число колонок считается от числа товаров. Жёсткие четыре колонки давали провал:
+ * готовых наборов в каталоге два, и половина полосы — 572 px из 1120 — оставалась
+ * пустой. Блок читался не как «наборов пока два», а как недогрузившийся.
+ */
 const ProductGrid = ({ products }: { products: ProductCardData[] }) => (
-  <div className="mt-12 grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-4">
+  <div
+    className={cn(
+      'mt-12 grid grid-cols-2 gap-3 sm:gap-6',
+      products.length >= 4
+        ? 'lg:grid-cols-3 xl:grid-cols-4'
+        : 'lg:mx-auto lg:max-w-3xl lg:grid-cols-2',
+    )}
+  >
     {products.map((product) => (
       <ProductCard key={product.id} product={product} className="reveal" />
     ))}

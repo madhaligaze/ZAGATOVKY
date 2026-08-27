@@ -66,10 +66,25 @@ export const ProductCard = ({ product, className }: Props) => {
           </RevealFrame>
         </Link>
 
+        {/* Правый край обязателен: без него пилюля растёт до края кадра и на
+            узкой карточке упирается в него вплотную. Вторая отметка на телефоне
+            прячется — вдвоём они закрывают верхнюю треть фотографии. */}
         {product.badges.length > 0 && (
-          <div className="pointer-events-none absolute left-4 top-4 flex flex-wrap gap-2">
-            {product.badges.slice(0, 2).map((badge) => (
-              <Badge key={badge.code} tone={badge.tone} className="bg-snow/90 backdrop-blur-sm">
+          <div className="pointer-events-none absolute left-3 right-3 top-3 flex flex-wrap gap-2 sm:left-4 sm:right-4 sm:top-4">
+            {product.badges.slice(0, 2).map((badge, index) => (
+              <Badge
+                key={badge.code}
+                tone={badge.tone}
+                /* На карточке в 134 px «Готовый набор» в системном кегле не
+                   помещается в одну строку. Переносить пилюлю нельзя — капсула
+                   рассчитана на строку, — поэтому на телефоне уменьшаем кегль
+                   и трекинг, а с sm возвращаем системные. */
+                className={cn(
+                  'whitespace-nowrap bg-snow/90 px-2 text-[0.625rem] tracking-[0.1em] backdrop-blur-sm',
+                  'sm:px-3 sm:text-caption sm:tracking-[0.125em]',
+                  index === 1 && 'hidden sm:inline-flex',
+                )}
+              >
                 {pick(badge.label, locale)}
               </Badge>
             ))}
@@ -77,19 +92,25 @@ export const ProductCard = ({ product, className }: Props) => {
         )}
       </div>
 
-      {/* В две колонки на телефоне карточка узкая: вес уходит под название,
-          цена и кнопка встают друг под друга — иначе строка не помещается. */}
+      {/* Цена и кнопка встают друг под друга на телефоне — иначе строка не помещается. */}
       <div className="flex flex-1 flex-col gap-2 border-t border-hairline p-4 sm:gap-3 sm:p-5">
-        <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+        {/* Мета — вторая строка, а не второй столбец. В строку она не влезает:
+            при двухстрочном названии «650 г · на 4 порции» уезжала за край
+            карточки на всех ширинах от 1024 px. */}
+        <div className="flex flex-col gap-1">
           <h3 className="text-body font-semibold leading-tight sm:text-subheading">
-            <Link to={`/product/${product.slug}`} className="hover:text-teal">
+            <Link
+              to={`/product/${product.slug}`}
+              title={name}
+              className="line-clamp-2 hover:text-teal sm:line-clamp-3"
+            >
               {name}
             </Link>
           </h3>
           {/* Вес без порций непонятен: «250 г свеклы» ничего не говорит о том,
               на сколько человек это. Порции есть не у всего — у масла и специй
               их не бывает, там остаётся один вес. */}
-          <span className="shrink-0 text-caption uppercase tracking-[0.125em] text-stone">
+          <span className="text-caption uppercase tracking-[0.125em] text-stone">
             {formatWeight(product.weight, locale)}
             {product.portions !== null && (
               <span className="text-stone/75">
@@ -100,8 +121,13 @@ export const ProductCard = ({ product, className }: Props) => {
           </span>
         </div>
 
+        {/* На телефоне описание раньше пряталось совсем, и на его месте
+            оставалась дыра в 36–74 px между весом и ценой. Одна строка
+            заполняет её содержанием. */}
         {pick(product.short, locale) && (
-          <p className="hidden text-body-sm text-stone sm:block">{pick(product.short, locale)}</p>
+          <p className="hidden line-clamp-1 text-body-sm text-stone min-[360px]:block sm:line-clamp-2">
+            {pick(product.short, locale)}
+          </p>
         )}
 
         <div className="mt-auto flex flex-col items-stretch gap-2 pt-2 sm:flex-row sm:items-end sm:justify-between sm:gap-3">
@@ -149,7 +175,7 @@ export const ProductCard = ({ product, className }: Props) => {
               size="md"
               onClick={handleAdd}
               data-testid={`add-${product.slug}`}
-              className="w-full px-5 text-caption tracking-[0.125em] sm:w-auto"
+              className="w-full px-5 text-caption sm:w-auto"
             >
               {t('product.addToCart')}
             </Button>

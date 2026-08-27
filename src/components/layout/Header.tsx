@@ -46,7 +46,9 @@ export const Header = () => {
           data-testid="logo"
         >
           <LogoMark className="h-7 w-7 sm:h-8 sm:w-8" />
-          <span className="font-editorial text-[1.125rem] leading-none tracking-tight sm:text-heading-sm">
+          {/* Ниже 360 px словесный знак снимается: с ним шапка требовала 336 px
+              при доступных 280, и страница уезжала вбок на 39 px. */}
+          <span className="hidden font-editorial text-[1.125rem] leading-none tracking-tight min-[360px]:inline sm:text-heading-sm">
             ZAGATOVKY
           </span>
         </Link>
@@ -87,7 +89,7 @@ export const Header = () => {
                 aria-pressed={locale === code}
                 data-testid={`locale-${code}`}
                 className={cn(
-                  'rounded-pill px-2 py-1.5 text-caption uppercase tracking-normal transition-colors sm:px-3 sm:tracking-[0.125em]',
+                  'grid min-h-11 place-items-center rounded-pill px-2 text-caption uppercase tracking-normal transition-colors sm:px-3 sm:tracking-[0.125em]',
                   locale === code ? 'bg-mountain text-parchment' : 'text-stone hover:text-mountain',
                 )}
               >
