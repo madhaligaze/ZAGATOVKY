@@ -3,6 +3,7 @@ import { Link, NavLink, useLocation } from 'react-router-dom';
 import { Menu, ShoppingBag, X } from 'lucide-react';
 import { useCart, selectCount } from '@/store/cart';
 import { useLocale } from '@/hooks/useLocale';
+import { LogoMark } from '@/components/ui/LogoMark';
 import { cn } from '@/lib/cn';
 
 const links = [
@@ -40,10 +41,14 @@ export const Header = () => {
       <div className="container-page flex h-18 items-center justify-between gap-3 py-4 lg:gap-6">
         <Link
           to="/"
-          className="font-editorial text-[1.125rem] leading-none tracking-tight sm:text-heading-sm"
+          className="flex items-center gap-2 sm:gap-2.5"
           aria-label="ZAGATOVKY"
+          data-testid="logo"
         >
-          ZAGATOVKY
+          <LogoMark className="h-7 w-7 sm:h-8 sm:w-8" />
+          <span className="font-editorial text-[1.125rem] leading-none tracking-tight sm:text-heading-sm">
+            ZAGATOVKY
+          </span>
         </Link>
 
         <nav className="hidden items-center gap-1 lg:flex">

@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { usePublicSettings } from '@/hooks/usePublicSettings';
 import { useLocale } from '@/hooks/useLocale';
 import { Button } from '@/components/ui/Button';
+import { LogoMark } from '@/components/ui/LogoMark';
 import { pick } from '@/lib/format';
 
 export const Footer = () => {
@@ -16,7 +17,12 @@ export const Footer = () => {
       <div className="container-page">
         <div className="grid gap-12 md:grid-cols-[1.2fr_1fr_1fr]">
           <div>
-            <p className="font-editorial text-heading-lg leading-tight">ZAGATOVKY</p>
+            {/* Тот же знак, что и в шапке. Цвет наследуется от текста, поэтому
+                на тёмной полосе он светлый — отдельная версия файла не нужна. */}
+            <div className="flex items-center gap-3">
+              <LogoMark className="h-10 w-10" />
+              <p className="font-editorial text-heading-lg leading-tight">ZAGATOVKY</p>
+            </div>
             <p className="mt-4 max-w-sm text-body text-parchment/70">
               {settings ? pick(settings.brand.tagline, locale) : t('footer.rights')}
             </p>
