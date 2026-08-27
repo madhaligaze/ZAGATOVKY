@@ -164,6 +164,11 @@ export const ProductPage = () => {
               </div>
               <div className="mb-1 flex flex-col text-caption uppercase tracking-[0.125em] text-stone">
                 <span>{formatWeight(product.weight, locale)}</span>
+                {product.portions !== null && (
+                  <span className="text-teal">
+                    {t('product.portions', { count: product.portions })}
+                  </span>
+                )}
                 {perHundred && (
                   <span>{t('product.perHundred', { price: formatPrice(perHundred, locale) })}</span>
                 )}

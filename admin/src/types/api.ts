@@ -110,6 +110,7 @@ export interface paths {
                                     /** @enum {string} */
                                     unit: "G" | "ML" | "PORTION" | "PCS";
                                 };
+                                portions: number | null;
                                 /** @enum {string} */
                                 stockStatus: "IN_STOCK" | "LOW" | "OUT";
                                 isFeatured: boolean;
@@ -202,6 +203,7 @@ export interface paths {
                                 /** @enum {string} */
                                 unit: "G" | "ML" | "PORTION" | "PCS";
                             };
+                            portions: number | null;
                             /** @enum {string} */
                             stockStatus: "IN_STOCK" | "LOW" | "OUT";
                             isFeatured: boolean;
@@ -279,6 +281,7 @@ export interface paths {
                                         /** @enum {string} */
                                         unit: "G" | "ML" | "PORTION" | "PCS";
                                     };
+                                    portions: number | null;
                                     /** @enum {string} */
                                     stockStatus: "IN_STOCK" | "LOW" | "OUT";
                                     isFeatured: boolean;
@@ -383,6 +386,7 @@ export interface paths {
                                     /** @enum {string} */
                                     unit: "G" | "ML" | "PORTION" | "PCS";
                                 };
+                                portions: number | null;
                                 /** @enum {string} */
                                 stockStatus: "IN_STOCK" | "LOW" | "OUT";
                                 isFeatured: boolean;
@@ -481,6 +485,7 @@ export interface paths {
                                         /** @enum {string} */
                                         unit: "G" | "ML" | "PORTION" | "PCS";
                                     };
+                                    portions: number | null;
                                     /** @enum {string} */
                                     stockStatus: "IN_STOCK" | "LOW" | "OUT";
                                     isFeatured: boolean;
@@ -1211,6 +1216,7 @@ export interface paths {
                                     /** @enum {string} */
                                     unit: "G" | "ML" | "PORTION" | "PCS";
                                 };
+                                portions: number | null;
                                 /** @enum {string} */
                                 stockStatus: "IN_STOCK" | "LOW" | "OUT";
                                 isFeatured: boolean;
@@ -1288,6 +1294,7 @@ export interface paths {
                                             /** @enum {string} */
                                             unit: "G" | "ML" | "PORTION" | "PCS";
                                         };
+                                        portions: number | null;
                                         /** @enum {string} */
                                         stockStatus: "IN_STOCK" | "LOW" | "OUT";
                                         isFeatured: boolean;
@@ -1368,6 +1375,7 @@ export interface paths {
                          * @enum {string}
                          */
                         weightUnit?: "G" | "ML" | "PORTION" | "PCS";
+                        portions?: number | null;
                         categoryId?: string | null;
                         /**
                          * @default IN_STOCK
@@ -1428,6 +1436,7 @@ export interface paths {
                                 /** @enum {string} */
                                 unit: "G" | "ML" | "PORTION" | "PCS";
                             };
+                            portions: number | null;
                             /** @enum {string} */
                             stockStatus: "IN_STOCK" | "LOW" | "OUT";
                             isFeatured: boolean;
@@ -1505,6 +1514,7 @@ export interface paths {
                                         /** @enum {string} */
                                         unit: "G" | "ML" | "PORTION" | "PCS";
                                     };
+                                    portions: number | null;
                                     /** @enum {string} */
                                     stockStatus: "IN_STOCK" | "LOW" | "OUT";
                                     isFeatured: boolean;
@@ -1601,6 +1611,7 @@ export interface paths {
                                 /** @enum {string} */
                                 unit: "G" | "ML" | "PORTION" | "PCS";
                             };
+                            portions: number | null;
                             /** @enum {string} */
                             stockStatus: "IN_STOCK" | "LOW" | "OUT";
                             isFeatured: boolean;
@@ -1678,6 +1689,7 @@ export interface paths {
                                         /** @enum {string} */
                                         unit: "G" | "ML" | "PORTION" | "PCS";
                                     };
+                                    portions: number | null;
                                     /** @enum {string} */
                                     stockStatus: "IN_STOCK" | "LOW" | "OUT";
                                     isFeatured: boolean;
@@ -1757,6 +1769,7 @@ export interface paths {
                          * @enum {string}
                          */
                         weightUnit?: "G" | "ML" | "PORTION" | "PCS";
+                        portions?: number | null;
                         categoryId?: string | null;
                         /**
                          * @default IN_STOCK
@@ -1817,6 +1830,7 @@ export interface paths {
                                 /** @enum {string} */
                                 unit: "G" | "ML" | "PORTION" | "PCS";
                             };
+                            portions: number | null;
                             /** @enum {string} */
                             stockStatus: "IN_STOCK" | "LOW" | "OUT";
                             isFeatured: boolean;
@@ -1894,6 +1908,7 @@ export interface paths {
                                         /** @enum {string} */
                                         unit: "G" | "ML" | "PORTION" | "PCS";
                                     };
+                                    portions: number | null;
                                     /** @enum {string} */
                                     stockStatus: "IN_STOCK" | "LOW" | "OUT";
                                     isFeatured: boolean;

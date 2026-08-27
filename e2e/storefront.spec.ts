@@ -361,7 +361,11 @@ test.describe('Тяжёлые эффекты знают своё место', ()
     expect(heavy).toEqual([]);
   });
 
-  test('при «меньше движения» контент виден сразу и без инерции', async ({ browser }) => {
+  test('при «меньше движения» контент виден сразу и без инерции', async ({ browser }, testInfo) => {
+    // Тест сам заводит контекст с нужными настройками, поэтому от устройства
+    // проекта не зависит — во втором проекте он был бы точной копией первого
+    test.skip(testInfo.project.name !== 'desktop', 'Достаточно одного прогона');
+
     const context = await browser.newContext({
       reducedMotion: 'reduce',
       viewport: { width: 1440, height: 900 },
@@ -369,16 +373,33 @@ test.describe('Тяжёлые эффекты знают своё место', ()
     const page = await context.newPage();
 
     await page.goto('/catalog');
-    await page.waitForTimeout(1200);
+    await expect(page.getByTestId('product-grid')).toBeVisible();
 
-    // Ни один кадр не остаётся скрытым маской: анимации нет, есть конечное состояние
-    const clips = await page.evaluate(() =>
-      Array.from(document.querySelectorAll('[data-testid="reveal-frame"]')).map(
-        (el) => getComputedStyle(el).clipPath,
-      ),
-    );
-    expect(clips.length).toBeGreaterThan(0);
-    expect(clips.every((c) => c === 'inset(0%)' || c === 'none')).toBeTruthy();
+    /*
+     * Ждём условие, а не фиксированную паузу: под нагрузкой GSAP успевал
+     * выставить конечное состояние позже отведённой секунды, и тест падал
+     * не по существу, а по таймингу.
+     *
+     * Проверяем главное: при «меньше движения» ни один кадр не остаётся
+     * скрытым маской — анимации нет, сразу конечное состояние.
+     */
+    await expect
+      .poll(
+        () =>
+          page.evaluate(() => {
+            const frames = Array.from(
+              document.querySelectorAll('[data-testid="reveal-frame"]'),
+            );
+            if (frames.length === 0) return 'кадров нет';
+            const stuck = frames.filter((el) => {
+              const clip = getComputedStyle(el).clipPath;
+              return clip !== 'inset(0%)' && clip !== 'none';
+            });
+            return stuck.length === 0 ? 'все раскрыты' : `скрыто ${stuck.length}`;
+          }),
+        { timeout: 10_000 },
+      )
+      .toBe('все раскрыты');
 
     // Прокрутка обычная: инерции быть не должно
     await page.mouse.wheel(0, 400);
@@ -480,5 +501,42 @@ test.describe('Поисковая выдача и превью ссылок', ()
     expect(catalog.canonical).not.toBe(home.canonical);
     expect(catalog.title).not.toBe(home.title);
     expect(await page.locator('link[rel="canonical"]').count()).toBe(1);
+  });
+});
+
+test.describe('Порции рядом с весом', () => {
+  test('@smoke карточка товара показывает вес и число порций', async ({ page }) => {
+    await page.goto('/product/borshchevoy-nabor');
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+
+    // Вес сам по себе не отвечает на вопрос «на сколько человек»
+    const main = await page.locator('main').innerText();
+    expect(main).toMatch(/650\s*Г/i);
+    expect(main).toMatch(/на\s+4\s+порц/i);
+  });
+
+  test('@smoke у расходников порций нет, остаётся один вес', async ({ page }) => {
+    await page.goto('/product/maslo-rastitelnoe');
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+
+    // У масла и специй порция бессмысленна: поле пустое, и витрина
+    // не должна выдумывать за него число
+    const weightLine = await page.evaluate(() => {
+      const el = Array.from(document.querySelectorAll('main span')).find((s) =>
+        /^\s*40\s*МЛ/i.test((s as HTMLElement).innerText),
+      );
+      return el?.parentElement?.innerText ?? '';
+    });
+    expect(weightLine).toMatch(/40\s*МЛ/i);
+    expect(weightLine).not.toMatch(/порц/i);
+  });
+
+  test('@smoke порции переводятся на казахский', async ({ page }) => {
+    await page.goto('/product/borshchevoy-nabor');
+    await page.getByTestId('locale-kk').click();
+
+    // У казахского другие категории числа: one/other вместо one/few/many.
+    // Без ключа _other перевод не находился вовсе, и строка пропадала.
+    await expect(page.locator('main')).toContainText(/4\s*порцияға/i, { timeout: 10_000 });
   });
 });

@@ -35,6 +35,7 @@ type Draft = {
   costPrice: number | null;
   weightValue: number;
   weightUnit: 'G' | 'ML' | 'PORTION' | 'PCS';
+  portions: number | null;
   categoryId: string;
   stockStatus: 'IN_STOCK' | 'LOW' | 'OUT';
   isActive: boolean;
@@ -58,6 +59,7 @@ const emptyDraft = (type: 'SIMPLE' | 'BUNDLE'): Draft => ({
   costPrice: null,
   weightValue: 0,
   weightUnit: 'G',
+  portions: null,
   categoryId: '',
   stockStatus: 'IN_STOCK',
   isActive: true,
@@ -112,6 +114,7 @@ export const ProductEditorPage = () => {
       costPrice: product.costPrice,
       weightValue: product.weight.value,
       weightUnit: product.weight.unit,
+      portions: product.portions,
       categoryId: product.category?.id ?? '',
       stockStatus: product.stockStatus,
       isActive: product.isActive,
@@ -199,6 +202,7 @@ export const ProductEditorPage = () => {
       costPrice: draft.costPrice,
       weightValue: draft.weightValue,
       weightUnit: draft.weightUnit,
+      portions: draft.portions,
       categoryId: draft.categoryId || null,
       stockStatus: draft.stockStatus,
       isActive: draft.isActive,
@@ -555,6 +559,31 @@ export const ProductEditorPage = () => {
                     )
                   }
                   data-testid="weight"
+                />
+              </Field>
+
+              {/* Вес сам по себе покупателю мало что говорит: «250 г свеклы» не
+                  отвечает на вопрос «на сколько человек». Поле необязательное —
+                  у масла и специй порция бессмысленна. */}
+              <Field
+                label="Порций"
+                hint={
+                  draft.portions
+                    ? `На витрине: «${draft.weightValue} ${
+                        { G: 'г', ML: 'мл', PORTION: 'порц.', PCS: 'шт.' }[draft.weightUnit]
+                      } · на ${draft.portions} порции»`
+                    : 'На сколько порций блюда хватит. Пусто — покажем только вес'
+                }
+              >
+                <Input
+                  inputMode="numeric"
+                  placeholder="не указано"
+                  value={draft.portions ?? ''}
+                  onChange={(event) => {
+                    const digits = event.target.value.replace(/\D/g, '');
+                    set('portions', digits ? Number.parseInt(digits, 10) : null);
+                  }}
+                  data-testid="portions"
                 />
               </Field>
 

@@ -86,8 +86,17 @@ export const ProductCard = ({ product, className }: Props) => {
               {name}
             </Link>
           </h3>
+          {/* Вес без порций непонятен: «250 г свеклы» ничего не говорит о том,
+              на сколько человек это. Порции есть не у всего — у масла и специй
+              их не бывает, там остаётся один вес. */}
           <span className="shrink-0 text-caption uppercase tracking-[0.125em] text-stone">
             {formatWeight(product.weight, locale)}
+            {product.portions !== null && (
+              <span className="text-stone/75">
+                {' · '}
+                {t('product.portions', { count: product.portions })}
+              </span>
+            )}
           </span>
         </div>
 
